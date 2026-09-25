@@ -1,96 +1,4 @@
-### Download (First-Time Setup / Fresh Machine)
-
-To clone the repo and set up the symlinks from scratch:
-
-```bash
-# 1. Clone your repo
-git clone git@github.com:anthony3974/dotfiles.git ~/dotfiles
-
-# 2. Back up existing i3 config if present
-mv ~/.config/i3/config ~/.config/i3/config.bak 2>/dev/null || true
-
-# 3. Create core symlinks
-ln -sf ~/dotfiles/i3/config ~/.config/i3/config
-ln -sfn ~/dotfiles/i3/conf.d ~/.config/i3/conf.d
-
-# 4. Link the host override (run ONE of these depending on the machine):
-# On Desktop:
-ln -sf ~/dotfiles/i3/hosts/desktop.conf ~/.config/i3/local.conf
-
-# On Laptop:
-# ln -sf ~/dotfiles/i3/hosts/laptop.conf ~/.config/i3/local.conf
-
-```
-
----
-
-### Update Commands (Daily Workflow)
-
-#### 1. Push Updates (From whichever machine you made changes on)
-
-Because `~/.config/i3/config` points directly to `~/dotfiles/i3/config`, any edits you make are already inside the repo:
-
-```bash
-cd ~/dotfiles
-git add -u
-git commit -m "Update i3 configuration"
-git push
-
-```
-
-#### 2. Pull & Apply Updates (On the other machine)
-
-Pull down the new changes and instantly reload i3 without restarting your session:
-
-```bash
-cd ~/dotfiles && git pull && i3-msg reload
-
-```
-
----
-
-### Handy Bash Aliases (Optional)
-
-Add these to your `~/.bashrc` to update or pull changes with a single word:
-
-```bash
-# Push dotfiles changes
-alias dotpush='cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push && cd -'
-
-# Pull changes and reload i3 immediately
-alias dotpull='cd ~/dotfiles && git pull && i3-msg reload && cd -'
-
-```
-
-# part
-# 2
-Create the `README.md` file in the root of your `~/dotfiles` directory, commit it, and push it to GitHub.
-
-### 1. Create the File
-
-Run this on your desktop to generate a clean, structured `README.md`:
-
-```bash
-cat << 'EOF' > ~/dotfiles/README.md
-# Dotfiles
-
-Personal configuration files for Arch Linux running the i3 window manager.
-
-## Structure
-
-```text
-~/dotfiles/
-├── i3/
-│   ├── config          # Core shared i3 configuration
-│   ├── conf.d/         # Modular includes (e.g., i3bar.conf)
-│   └── hosts/          # Machine-specific overrides
-│       ├── desktop.conf
-│       └── laptop.conf
-└── README.md
-
-```
-
-## Setup & Installation
+## Setup & Installation (Fresh Machine)
 
 ### 1. Clone the repository
 
@@ -99,72 +7,93 @@ git clone git@github.com:anthony3974/dotfiles.git ~/dotfiles
 
 ```
 
-### 2. Symlink core i3 configurations
+### 2. Configure Bash
 
 ```bash
+# Back up existing config
+mv ~/.bashrc ~/.bashrc.bak 2>/dev/null || true
+
+# Symlink shared bashrc
+ln -sf ~/dotfiles/bash/bashrc ~/.bashrc
+
+# Optional local overrides file
+touch ~/.bashrc.local
+
+```
+
+### 3. Add Workflow Aliases to Bash
+
+Run this once to append `dotpush` and `dotpull` to your shared Bash config:
+
+```bash
+cat << 'EOF' >> ~/dotfiles/bash/bashrc
+
+# Dotfiles synchronization aliases
+alias dotpush='cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push && cd -'
+alias dotpull='cd ~/dotfiles && git pull && i3-msg restart && cd -'
+EOF
+
+```
+
+### 4. Configure i3
+
+```bash
+# Prepare directories & backup
 mkdir -p ~/.config/i3
+mv ~/.config/i3/config ~/.config/i3/config.bak 2>/dev/null || true
+
+# Symlink shared configs
 ln -sf ~/dotfiles/i3/config ~/.config/i3/config
 ln -sfn ~/dotfiles/i3/conf.d ~/.config/i3/conf.d
 
-```
-
-### 3. Link host-specific override
-
-**Desktop:**
-
-```bash
+# Symlink host-specific override (run ONE depending on the machine):
+# Desktop:
 ln -sf ~/dotfiles/i3/hosts/desktop.conf ~/.config/i3/local.conf
 
+# Laptop:
+# ln -sf ~/dotfiles/i3/hosts/laptop.conf ~/.config/i3/local.conf
+
 ```
 
-**Laptop:**
+### 5. Configure i3blocks
 
 ```bash
-ln -sf ~/dotfiles/i3/hosts/laptop.conf ~/.config/i3/local.conf
+# Back up existing i3blocks directory
+mv ~/.config/i3blocks ~/.config/i3blocks.bak 2>/dev/null || true
+
+# Symlink full directory
+ln -sfn ~/dotfiles/i3blocks ~/.config/i3blocks
 
 ```
 
-### 4. Reload i3
+### 6. Apply Changes
 
-Press `$mod+Shift+z` or run:
+Restart i3 and reload Bash:
 
 ```bash
-i3-msg reload
-
-```
-
-## Daily Workflow
-
-* **Push updates:**
-```bash
-cd ~/dotfiles && git add -u && git commit -m "Update configs" && git push
-
-```
-
-
-* **Pull updates & reload:**
-```bash
-cd ~/dotfiles && git pull && i3-msg reload
-
-```
-
-
-
-EOF
+i3-msg restart
+source ~/.bashrc
 
 ```
 
 ---
 
-### 2. Commit and Push to GitHub
+## Daily Workflow
+
+### Push Changes (From active machine)
 
 ```bash
-cd ~/dotfiles
-git add README.md
-git commit -m "Add README with installation and workflow docs"
-git push
+dotpush
+# Or manually:
+# cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push
 
 ```
 
-Once pushed, head over to `[https://github.com/anthony3974/dotfiles](https://github.com/anthony3974/dotfiles)` to see it rendered on your repo front page. On your laptop, a simple `cd ~/dotfiles && git pull` will fetch the new README.
+### Pull Changes (On other machine)
 
+```bash
+dotpull
+# Or manually:
+# cd ~/dotfiles && git pull && i3-msg restart
+
+```
