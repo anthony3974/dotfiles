@@ -28,14 +28,14 @@ markup=pango
 command=awk '{l=$1; col=(l>=16.0?"#e06c75":(l>=8.0?"#e5c07b":"#ffffff")); printf "<span foreground=\"%s\">LOAD:</span> <span foreground=\"#ffffff\">%s</span>\n", col, l}' /proc/loadavg
 interval=10
 
+[battery]
+command=sh -c 'cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1); stat=$(cat /sys/cla>
+interval=30
+
 [disk]
 label=DF: 
 command=df -k / | awk 'NR==2 {printf "%dG (%.2fT)\n", $4/(1024*1024), $4/(1024*1024*1024)}'
 interval=10
-
-[battery]
-command=sh -c 'cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1); stat=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1); [ -n "$cap" ] && echo "${cap}% ${stat}"'
-interval=30
 
 [memory]
 markup=pango

@@ -3,7 +3,7 @@
 # version 3.0
 # Smoothly interpolates color temperature and brightness based on time.
 
-vFILE_PATH="$HOME/.xsct.file"
+FILE_PATH="$HOME/.xsct.file"
 
 if [[ -f "$FILE_PATH" ]]; then
     echo "Lock file found, exiting."
