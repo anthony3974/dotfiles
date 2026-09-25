@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec yt-dlp -x --audio-format mp3 -o "%(album,playlist_title,uploader)s/%(playlist_index&{:02d} - |)s%(title)s.%(ext)s" "$@"

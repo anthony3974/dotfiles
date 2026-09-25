@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Get the current volume of the default sink
+CUR_VOL=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -Po '[0-9]+(?=%)' | head -1)
+
+# Only increase if volume is less than 100
+if [ "$CUR_VOL" -lt 130 ]; then
+    pactl set-sink-volume @DEFAULT_SINK@ +5%
+fi
+
+# Refresh i3status
+#killall -SIGUSR1 i3status

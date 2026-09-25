@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+# version 2.5
+# added slower transition from 10pm - 10:05
+# fixed morning logic, syntax, and time blocks
+
+FILE_PATH="$HOME/.xsct.file"
+
+if [[ -f "$FILE_PATH" ]]; then
+    echo "Lock file found, exiting."
+    exit 0
+fi
+
+# Fetch hour and minute simultaneously
+read -r hour minute <<< "$(date +'%_H %_M')"
+
+# Screen color temperature schedule
+
+# Sleep
+if (( hour >= 22 )); then
+    if (( hour == 22 && minute <= 5 )); then
+        xsct 2800 0.83
+    else
+        xsct 2000 0.75
+    fi
+# Midnight and beyond
+elif (( hour < 7 )); then
+    xsct 2000 0.5
+
+# Early Morning (7:00 AM - 7:59 AM)
+elif (( hour == 7 )); then
+    xsct 3500 0.85
+
+# Morning (8:00 AM - 8:59 AM)
+elif (( hour == 8 )); then
+    xsct 4000 0.90
+
+# Daytime (9:00 AM - 3:59 PM)
+elif (( hour < 16 )); then
+    xsct 5000 1
+
+# Afternoon (4:00 PM - 6:59 PM)
+elif (( hour < 19 )); then
+    xsct 4500 0.9
+
+# Evening (7:00 PM - 9:59 PM)
+else
+    xsct 3500 0.9
+fi

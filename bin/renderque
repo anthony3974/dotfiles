@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# ---
+# autotranscode.{timer,service}
+# ---
+# Manually Trigger a Scan:
+# systemctl --user start autotranscode.service
+# Follow Live Transcode Output
+# journalctl --user -u autotranscode.service -f
+# ---
+# File location
+# .config/systemd/user/
+
+set -euo pipefail
+
+WATCH_DIR="$HOME/Videos/in"
+DONE_DIR="$HOME/Videos/done"
+OUT_DIR="$HOME/Videos/out"
+PRESET_FILE="$HOME/.config/ghb/tonyopt.json"
+PRESET_NAME="Fast 1080p tonyopt"
+EXT="mp4"
+
+mkdir -p "$WATCH_DIR" "$DONE_DIR" "$OUT_DIR"
+
+LOCKFILE="/tmp/autotranscode.lock"
+exec 200>"$LOCKFILE"
+flock -n 200 || exit 0
+
+# Track the current temporary output file and HandBrake PID for cleanup
+CURRENT_TEMP=""
+HB_PID=""
+
+cleanup() {
+  echo -e "\n[$(date '+%Y-%m-%d %H:%M:%S')] Aborted by user. Cleaning up..."
+
+  # Terminate HandBrakeCLI if it is currently running
+  if [[ -n "$HB_PID" ]] && kill -0 "$HB_PID" 2>/dev/null; then
+    kill -TERM "$HB_PID" 2>/dev/null || true
+    wait "$HB_PID" 2>/dev/null || true
+  fi
+
+  # Remove partial transcode file
+  if [[ -n "$CURRENT_TEMP" && -f "$CURRENT_TEMP" ]]; then
+    rm -f "$CURRENT_TEMP"
+  fi
+
+  exit 130
+}
+
+# Trap Ctrl+C (SIGINT) and termination (SIGTERM)
+trap cleanup SIGINT SIGTERM
+
+while IFS= read -r -d '' file; do
+  size1=$(stat -c%s "$file" 2>/dev/null || echo 0)
+  sleep 1
+  size2=$(stat -c%s "$file" 2>/dev/null || echo 0)
+
+  if [[ "$size1" -ne "$size2" ]] || fuser -s "$file" 2>/dev/null; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Skipping busy/writing file: $file"
+    continue
+  fi
+
+  rel_path="${file#"$WATCH_DIR"/}"
+  rel_dir="$(dirname "$rel_path")"
+  filename="$(basename "$file")"
+  base="${filename%.*}"
+
+  target_dir="$OUT_DIR/$rel_dir"
+  done_subdir="$DONE_DIR/$rel_dir"
+
+  mkdir -p "$target_dir" "$done_subdir"
+
+  target="$target_dir/${base}.$EXT"
+  temp_target="$target_dir/.${base}.$EXT.tmp"
+  CURRENT_TEMP="$temp_target"
+
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting transcode: $rel_path"
+
+  # Run HandBrakeCLI in background to capture PID, then wait
+  HandBrakeCLI \
+    -i "$file" -o "$temp_target" \
+    --preset-import-file "$PRESET_FILE" \
+    --preset "$PRESET_NAME" < /dev/null &
+
+  HB_PID=$!
+
+  # Wait for HandBrake to finish or catch the signal
+  if wait "$HB_PID"; then
+    mv -f "$temp_target" "$target"
+    mv -f "$file" "$done_subdir/"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Finished: $rel_path"
+    CURRENT_TEMP=""
+    HB_PID=""
+  else
+    status=$?
+    # If terminated by Ctrl+C (128+2 = 130) or SIGTERM (128+15 = 143), cleanup is invoked
+    if [[ $status -eq 130 || $status -eq 143 ]]; then
+      cleanup
+    fi
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Error transcoding: $rel_path (code: $status)" >&2
+    rm -f "$temp_target"
+    CURRENT_TEMP=""
+    HB_PID=""
+  fi
+done < <(find "$WATCH_DIR" -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \) -print0 | sort -z -V)
+
+find "$WATCH_DIR" -mindepth 1 -depth -type d -empty -delete

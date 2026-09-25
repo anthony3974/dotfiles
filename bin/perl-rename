@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# A safe wrapper for perl-rename that blocks collisions and accidental overwrites
+
+# Capture dry-run output
+dry_output=$(/usr/bin/perl-rename "$@" -n 2>&1)
+if [ $? -ne 0 ]; then
+    echo "$dry_output" >&2
+    exit 1
+fi
+
+declare -A targets
+declare -a errors
+
+# Parse perl-rename dry-run output (format: 'old' -> 'new')
+while IFS= read -r line; do
+    if [[ "$line" =~ \-\>\s*(.+) ]]; then
+        dest="${BASH_REMATCH[1]}"
+        # Strip potential surrounding quotes
+        dest="${dest%\'}"
+        dest="${dest#\'}"
+        dest="${dest%\"}"
+        dest="${dest#\"}"
+
+        # Extract source for error reporting if needed
+        src="${line%% \-\>*}"
+        src="${src%\'}"
+        src="${src#\'}"
+
+        # Check for multi-file collision (two sources -> same target)
+        if [[ -n "${targets["$dest"]}" ]]; then
+            errors+=("Collision: '${targets["$dest"]}' and '$src' both map to '$dest'")
+        else
+            targets["$dest"]="$src"
+        fi
+
+        # Check if target already exists on disk (and isn't self-renaming)
+        if [[ -e "$dest" && "$src" != "$dest" ]]; then
+            errors+=("File exists: Target '$dest' already exists on disk")
+        fi
+    fi
+done <<< "$dry_output"
+
+# Abort if any safety violation is detected
+if [ ${#errors[@]} -gt 0 ]; then
+    echo "Error: Rename operation aborted to prevent data loss:" >&2
+    printf '  * %s\n' "${errors[@]}" >&2
+    exit 1
+fi
+
+# Execute the actual rename if all checks pass
+/usr/bin/perl-rename "$@"

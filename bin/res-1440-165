@@ -1,0 +1,11 @@
+#!/bin/sh
+xrandr --output DisplayPort-0 --mode 2560x1440 --rate 164.96
+
+cat << 'EOF' > ~/.config/i3/conf.d/i3bar.conf
+bar {
+        status_command i3blocks
+        font pango:monospace 9
+        height 21
+}
+EOF
+i3-msg restart

@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+import subprocess
+import warnings
+import sys
+import time
+import gi
+
+# Suppress GTK deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+gi.require_version('Gtk', '3.0')
+gi.require_version('GdkPixbuf', '2.0')
+from gi.repository import Gtk, GLib, Gio, GdkPixbuf
+
+# Vector SVGs (Coffee Cup Active vs Inactive)
+SVG_ACTIVE = """
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38d430" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+  <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+  <line x1="6" y1="1" x2="6" y2="4"/>
+  <line x1="10" y1="1" x2="10" y2="4"/>
+  <line x1="14" y1="1" x2="14" y2="4"/>
+</svg>
+"""
+
+SVG_INACTIVE = """
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+  <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+</svg>
+"""
+
+def load_pixbuf_from_svg(svg_data):
+    loader = GdkPixbuf.PixbufLoader.new_with_type('svg')
+    loader.write(svg_data.encode('utf-8'))
+    loader.close()
+    return loader.get_pixbuf()
+
+class CaffeineApplet:
+    def __init__(self):
+        self.is_active = False
+        self.timer_id = None
+        self.expire_time = None
+        self.tooltip_timer_id = None
+        self.inhibit_cookie = None
+
+        # Setup DBus connection for xfce4-power-manager / freedesktop
+        try:
+            self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        except Exception:
+            self.bus = None
+
+        # Pre-render pixbufs from SVG strings
+        self.pixbuf_active = load_pixbuf_from_svg(SVG_ACTIVE)
+        self.pixbuf_inactive = load_pixbuf_from_svg(SVG_INACTIVE)
+
+        # Initialize StatusIcon
+        self.status_icon = Gtk.StatusIcon()
+        self.status_icon.connect('activate', self.on_left_click)
+        self.status_icon.connect('popup-menu', self.on_right_click)
+
+        self.update_state(False)
+
+    def set_inhibit(self, enable: bool):
+        self.is_active = enable
+
+        subprocess.run([
+            "xfconf-query",
+            "-c", "xfce4-power-manager",
+            "-p", "/xfce4-power-manager/presentation-mode",
+            "-s", "true" if enable else "false"
+        ], check=False)
+
+    def update_tooltip(self):
+        """Dynamically calculates remaining time and updates the tooltip"""
+        if self.is_active:
+            if self.expire_time:
+                rem = int(self.expire_time - time.time())
+                if rem > 0:
+                    h, rem_sec = divmod(rem, 3600)
+                    m, s = divmod(rem_sec, 60)
+                    tooltip = f"Caffeine: ACTIVE (Time left: {h:02d}:{m:02d}:{s:02d})"
+                else:
+                    tooltip = "Caffeine: ACTIVE (Timer expiring...)"
+            else:
+                tooltip = "Caffeine: ACTIVE (Power management inhibited)"
+        else:
+            tooltip = "Caffeine: INACTIVE (Power management active)"
+
+        self.status_icon.set_tooltip_text(tooltip)
+        return True
+
+    def update_state(self, active: bool, msg: str = None):
+        self.set_inhibit(active)
+
+        if self.is_active:
+            self.status_icon.set_from_pixbuf(self.pixbuf_active)
+        else:
+            self.status_icon.set_from_pixbuf(self.pixbuf_inactive)
+
+        self.update_tooltip()
+
+        if msg:
+            subprocess.run(["notify-send", "Caffeine", msg], check=False)
+
+    def on_left_click(self, icon):
+        """Left click toggles infinite lock suppression"""
+        self.cancel_timer()
+        self.update_state(not self.is_active, "Toggled " + ("ON" if not self.is_active else "OFF"))
+
+    def on_right_click(self, icon, button, time_val):
+        """Right click menu: Activate/Deactivate, 1h, 2h, 3h timers, Exit"""
+        menu = Gtk.Menu()
+
+        toggle_label = "Deactivate" if self.is_active else "Activate"
+        item_toggle = Gtk.MenuItem(label=toggle_label)
+        item_toggle.connect('activate', lambda _: self.on_left_click(icon))
+        menu.append(item_toggle)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        for hours in [1, 2, 3]:
+            item_timer = Gtk.MenuItem(label=f"Enable for {hours} hour{'s' if hours > 1 else ''}")
+            item_timer.connect('activate', lambda _, h=hours: self.start_timer(h))
+            menu.append(item_timer)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item_exit = Gtk.MenuItem(label="Exit")
+        item_exit.connect('activate', self.on_exit)
+        menu.append(item_exit)
+
+        menu.show_all()
+        menu.popup(None, None, Gtk.StatusIcon.position_menu, icon, button, time_val)
+
+    def start_timer(self, hours):
+        self.cancel_timer()
+        seconds = hours * 3600
+        
+        self.expire_time = time.time() + seconds
+        self.timer_id = GLib.timeout_add_seconds(seconds, self.on_timer_expire)
+        self.tooltip_timer_id = GLib.timeout_add_seconds(1, self.update_tooltip)
+        
+        self.update_state(True, f"Activated for {hours} hour(s)")
+
+    def cancel_timer(self):
+        self.expire_time = None
+        
+        if self.timer_id:
+            GLib.source_remove(self.timer_id)
+            self.timer_id = None
+            
+        if self.tooltip_timer_id:
+            GLib.source_remove(self.tooltip_timer_id)
+            self.tooltip_timer_id = None
+            
+        self.update_tooltip()
+
+    def on_timer_expire(self):
+        self.timer_id = None
+        self.cancel_timer()
+        self.update_state(False, "Timer expired. Screen lock re-enabled.")
+        return False
+
+    def on_exit(self, _):
+        self.set_inhibit(False)
+        Gtk.main_quit()
+
+if __name__ == '__main__':
+    app = CaffeineApplet()
+    try:
+        Gtk.main()
+    except KeyboardInterrupt:
+        app.set_inhibit(False)

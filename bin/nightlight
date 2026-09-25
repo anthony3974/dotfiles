@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# version 3.0
+# Smoothly interpolates color temperature and brightness based on time.
+
+vFILE_PATH="$HOME/.xsct.file"
+
+if [[ -f "$FILE_PATH" ]]; then
+    echo "Lock file found, exiting."
+    exit 0
+fi
+
+# Get current time in total minutes since midnight (0 - 1439)
+read -r current_hour current_min <<< "$(date +'%_H %_M')"
+now=$(( current_hour * 60 + current_min ))
+
+# Define schedule anchor points: (MinutesSinceMidnight, Temp, Brightness)
+# Updated to your requested 7:00-7:59 and 8:00-8:59 breakdown.
+# Time blocks map cleanly as step transitions or continuous ramps.
+# Format: "minutes temp brightness"
+schedules=(
+    "0    2000 0.50"  # 00:00
+    "420  3500 0.80"  # 07:00 (Start of 7:00-7:59 block)
+    "480  4000 0.90"  # 08:00 (Start of 8:00-8:59 block)
+    "540  5000 1.00"  # 09:00 (Daytime start)
+    "960  4500 0.90"  # 16:00 (Afternoon start)
+    "1140 3500 0.90"  # 19:00 (Evening start)
+    "1320 2800 0.80"  # 22:00 (Start of sleep transition)
+    "1380 2800 0.65"  # 23:00 (Sleep transition)
+    "1440 2000 0.50"  # 24:00 / 00:00 wrap-around anchor
+)
+
+## Find the active interval [t1, t2]
+# These act as safe fallback default values
+t1_min=0; t1_temp=2000; t1_bri="0.60"
+t2_min=1440; t2_temp=2000; t2_bri="0.60"
+
+for ((i=0; i<${#schedules[@]}-1; i++)); do
+    read -r m1 temp1 bri1 <<< "${schedules[i]}"
+    read -r m2 temp2 bri2 <<< "${schedules[i+1]}"
+
+    if (( now >= m1 && now < m2 )); then
+        t1_min=$m1; t1_temp=$temp1; t1_bri=$bri1
+        t2_min=$m2; t2_temp=$temp2; t2_bri=$bri2
+        break
+    fi
+done
+
+# Linear interpolation formula: val1 + (val2 - val1) * (now - t1) / (t2 - t1)
+span=$(( t2_min - t1_min ))
+if (( span <= 0 )); then
+    span=1 # Prevent division by zero
+fi
+
+elapsed=$(( now - t1_min ))
+
+# Calculate interpolated temperature (integers)
+target_temp=$(( t1_temp + (t2_temp - t1_temp) * elapsed / span ))
+
+# Calculate interpolated brightness (using float math via awk since brightness is a decimal like 0.90)
+target_bri=$(awk -v b1="$t1_bri" -v b2="$t2_bri" -v el="$elapsed" -v sp="$span" \
+    'BEGIN { printf "%.2f", b1 + (b2 - b1) * el / sp }')
+
+# Apply via xsct
+xsct "$target_temp" "$target_bri"

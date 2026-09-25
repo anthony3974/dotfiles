@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+while IFS= read -r url; do [[ -n "$url" ]] && tsp ytm "$url"; done
