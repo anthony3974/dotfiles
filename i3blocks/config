@@ -1,0 +1,49 @@
+# ~/.config/i3blocks/config
+separator=true
+separator_block_width=15
+markup=pango
+
+[music]
+command=~/.config/i3blocks/mediaplayer
+interval=2
+signal=11
+
+[wireless]
+label=W: 
+command=nmcli -t -f active,ssid dev wifi | awk -F: '$1=="yes"{print $2}' || echo "down"
+interval=10
+
+[ethernet]
+label=E: 
+command=sh -c 'IF=$(ls /sys/class/net | grep -vE "^(lo|wl|docker|virbr)" | head -n1); [ -n "$IF" ] && [ "$(cat /sys/class/net/$IF/operstate 2>/dev/null)" = "up" ] && echo "$(cat /sys/class/net/$IF/speed 2>/dev/null) Mb/s" || echo "down"'
+interval=30
+
+[cpu_temp]
+markup=pango
+command=cat /sys/devices/pci0000:00/0000:00:18.3/hwmon/hwmon*/temp1_input | head -n1 | awk '{t=int($1/1000); col=(t>=80?"#e06c75":(t>=60?"#e5c07b":"#ffffff")); printf "<span foreground=\"%s\">TEMP:</span> <span foreground=\"#ffffff\">%d °C</span>\n", col, t}'
+interval=10
+
+[load]
+markup=pango
+command=awk '{l=$1; col=(l>=16.0?"#e06c75":(l>=8.0?"#e5c07b":"#ffffff")); printf "<span foreground=\"%s\">LOAD:</span> <span foreground=\"#ffffff\">%s</span>\n", col, l}' /proc/loadavg
+interval=10
+
+[disk]
+label=DF: 
+command=df -k / | awk 'NR==2 {printf "%dG (%.2fT)\n", $4/(1024*1024), $4/(1024*1024*1024)}'
+interval=10
+
+[memory]
+markup=pango
+command=free -m | awk '/^Mem:/ {pct=($7/$2)*100; col=(pct<=20?"#e06c75":(pct<=40?"#e5c07b":"#ffffff")); "free -h | awk '\''/^Mem:/ {print $3 \"/\" $7}'\''" | getline val; printf "<span foreground=\"%s\">MEM:</span> <span foreground=\"#ffffff\">%s</span>\n", col, val}'
+interval=10
+
+[volume]
+markup=pango
+command=~/.config/i3blocks/volume
+interval=10
+signal=1
+
+[time]
+command=date '+%Y-%m-%d %H:%M:%S'
+interval=1
