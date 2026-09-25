@@ -1,0 +1,24 @@
+# Backups and temporary files
+*.bak
+*.old
+*.orig
+*~
+*.swp
+*.swo
+
+# Diff & reference files
+*.diff
+*.patch
+
+# OS & Environment junk
+.DS_Store
+ehthumbs.db
+Thumbs.db
+
+# Secrets & local-only configs (safety guards)
+*secret*
+*token*
+*.key
+id_rsa
+id_ed25519
+local.conf
