@@ -1,0 +1,98 @@
+# ~/.bashrc
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+# put anything after the next line !!!
+
+run_debug_hook() {
+    echo -ne "\e[0m" # Resets color back to default/white before command runs
+}
+
+trap 'run_debug_hook' DEBUG
+
+# --- bash history configuration ---
+
+# [ignoreboth:erasedups] 'ignoreboth' combines 'ignorespace' (commands starting with a leading space)
+# and 'ignoredups' (skips consecutive duplicate commands).
+# 'erasedups' deletes all previous identical entries from the entire history list.
+HISTCONTROL=ignoreboth:erasedups
+
+# [50000] Number of commands kept in active memory (RAM) for the current session (searched by Up Arrow / Ctrl+R)
+HISTSIZE=50000
+
+# [100000] Maximum lines saved to the physical ~/.bash_history file on disk before older lines are trimmed
+HISTFILESIZE=100000
+
+# [histappend] Appends new commands to ~/.bash_history on exit instead of overwriting the file
+shopt -s histappend
+
+# [cmdhist] 'Command history' vs 'line history': saves all lines of a multi-line command
+# (loops, functions) into a single functional entry instead of breaking them into fragmented lines
+shopt -s cmdhist
+
+# Append the last command to disk immediately before showing the next prompt
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"
+# --- END: bash history configuration ---
+
+# 'ls' aliases
+alias ls='ls --color=auto'
+alias ll='ls -lh'
+alias la='ls -a'
+alias li='ls -1N'
+alias grep='grep --color=auto'
+
+# 'PS1' prompt configuration
+PS1='\[\e[36m\]\u\[\e[31m\]@\[\e[32m\]\h \[\e[33m\]\W\[\e[32m\]\$\[\e[37m\] '
+# Standard Colors
+# 30: Black         \[\e[30m\]
+# 31: Red           \[\e[31m\]
+# 32: Green         \[\e[32m\]
+# 33: Yellow        \[\e[33m\]
+# 34: Blue          \[\e[34m\]
+# 35: Magenta       \[\e[35m\]
+# 36: Cyan          \[\e[36m\]
+# 37: White         \[\e[37m\]
+
+# My aliases
+alias xxx='xmodmap ~/.Xmodmap'
+alias sss='shutdown 0'
+alias i3set='nano ~/.config/i3/config'
+alias bashset='nano ~/.bashrc'
+alias kittyset='nano ~/.config/kitty/kitty.conf'
+alias i3blockset='cd ~/.config/i3blocks/ && ls'
+alias te='trash-empty -f 14'
+alias tp='trash-put'
+alias tl='trash-list'
+alias musync='rsync -rtvP --delete /mnt/sam/musicisos/ /mnt/whole/musicisos/'
+alias y='tsp ytm'
+alias ya='tsp ytma'
+alias bc='bc -l'
+
+# My functions
+md() {
+    mkdir -p "$1" && cd "$1"
+}
+
+cdl() {
+    cd "$1" && ls
+}
+
+di() {
+  local targets=("$@")
+  [[ ${#targets[@]} -eq 0 ]] && targets=(".")
+
+  for target in "${targets[@]}"; do
+    echo "=== $target ==="
+    printf "Size:    %s\nFiles:   %s\nFolders: %s\n\n" \
+      "$(du -sh "$target" 2>/dev/null | cut -f1)" \
+      "$(find "$target" -type f 2>/dev/null | wc -l)" \
+      "$(find "$target" -mindepth 1 -type d 2>/dev/null | wc -l)"
+  done
+}
+
+
+
+# Source local machine overrides if present
+if [ -f ~/.bashrc.local ]; then
+    . ~/.bashrc.local
+fi
