@@ -27,13 +27,6 @@ exec_always --no-startup-id picom -b
 exec --no-startup-id system-config-printer-applet
 exec --no-startup-id /usr/lib/xapps/xapp-sn-watcher
 exec --no-startup-id xdg-user-dirs-update
-exec --no-startup-id /opt/urserver/urserver-start --no-manager --no-notify
-
-# Font AntiAliasing
-exec --no-startup-id xrdb -merge ~/.Xresources
-
-# Solaar for keyboard remapping
-exec --no-startup-id solaar --window=hide
 
 # xss-lock grabs a logind suspend inhibit lock and will use i3lock to lock the
 # screen before suspend. Use loginctl lock-session to lock your screen.
@@ -81,28 +74,16 @@ bindsym Print exec --no-startup-id maim -s ~/Pictures/screenshot_$(date +%s).png
 #set $refresh_i3status killall -SIGUSR1 i3status
 set $refresh_i3status pkill -RTMIN+1 i3blocks
 
-# --- Volume Controls ---
 # Dedicated Audio Keys
 bindsym XF86AudioRaiseVolume exec --no-startup-id /home/anthony/.local/bin/volumeup && $refresh_i3status
 bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5% && $refresh_i3status
 bindsym XF86AudioMute        exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle && $refresh_i3status
 bindsym XF86AudioMicMute     exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle && $refresh_i3status
 
-# Function Key Shortcuts ($mod + F11 to Insert)
-bindsym $mod+F12 exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5% && $refresh_i3status
-bindsym $mod+Insert exec --no-startup-id /home/anthony/.local/bin/volumeup && $refresh_i3status
-bindsym $mod+F11 exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle && $refresh_i3status
-
-# --- Media Controls (playerctl) ---
 # Dedicated Media Keys
 bindsym XF86AudioPlay exec --no-startup-id playerctl play-pause
 bindsym XF86AudioNext exec --no-startup-id playerctl next
 bindsym XF86AudioPrev exec --no-startup-id playerctl previous
-
-# Function Key Shortcuts ($mod + F6 to F7 and F10)
-bindsym $mod+F6 exec --no-startup-id playerctl previous
-bindsym $mod+F7 exec --no-startup-id playerctl next
-bindsym $mod+F10 exec --no-startup-id playerctl play-pause
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
@@ -127,12 +108,6 @@ bindsym $mod+x exec thunar
 bindsym $mod+o exec --no-startup-id QT_QPA_PLATFORMTHEME=qt6ct QT_SCALE_FACTOR=1.75 dolphin
 bindsym $mod+i exec --no-startup-id dolphin
 
-# Display mode script
-bindsym $mod+bracketleft exec res-4k-165
-bindsym $mod+bracketright exec res-1440-165
-bindsym $mod+shift+bracketleft exec res-1080-60
-bindsym $mod+shift+bracketright exec res-1080-360
-
 # start Missioncenter
 bindsym Control+Shift+Escape exec --no-startup-id missioncenter
 
@@ -145,23 +120,11 @@ bindsym $mod+n exec thunderbird
 # start Firefox
 bindsym $mod+m exec firefox
 
-# start Easyeffects
-bindsym $mod+b exec easyeffects
-
-# start Fallout Shelter
-bindsym $mod+shift+c exec steam steam://rungameid/588430
-
-# start Kodi
-bindsym $mod+Shift+m exec --no-startup-id ~/.local/bin/kodi-presentation
-
 # kill focused window
 bindsym $mod+q kill
 
 # Force kill (SIGKILL) the PID of the currently active window
 bindsym $mod+Shift+x exec --no-startup-id bash -c 'PID=$(xprop -id $(xdotool getactivewindow) _NET_WM_PID | awk "{print \$3}") && [ -n "$PID" ] && kill -9 "$PID" || xkill -id $(xdotool getactivewindow)'
-
-# Launch the custom job layout and apps
-bindsym $mod+j exec --no-startup-id ~/.config/i3/load_job_layout.sh
 
 # start rofi (a program launcher)
 bindsym $mod+space exec --no-startup-id "rofi -modi drun,run -show drun"
@@ -308,3 +271,4 @@ bindsym $mod+r mode "resize"
 # Start i3bar to display a workspace bar (plus the system information i3status
 # finds out, if available)
 include ~/.config/i3/conf.d/i3bar.conf
+include ~/.config/i3/local.conf
