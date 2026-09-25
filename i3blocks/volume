@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+case "$BLOCK_BUTTON" in
+    2) pactl set-sink-mute @DEFAULT_SINK@ toggle ;;
+    4) pactl set-sink-volume @DEFAULT_SINK@ +1% ;;
+    5) pactl set-sink-volume @DEFAULT_SINK@ -1% ;;
+esac
+
+# Label colors:
+# Yellow: #f5c211 | Red: #e06c75 | Green: #98c379
+LABEL_COLOR="#f5c211"
+
+if pactl get-sink-mute @DEFAULT_SINK@ | grep -q "yes"; then
+    echo "<span foreground='#e06c75'>VOL:</span> <span foreground='#7f848e'>MUTED</span>"
+else
+    VOL=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oE '[0-9]+%' | head -1)
+    echo "<span foreground='${LABEL_COLOR}'>VOL:</span> <span foreground='#ffffff'>${VOL}</span>"
+fi
