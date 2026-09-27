@@ -33,7 +33,7 @@ TOTAL_BLOCKS=26
 ACTIVE_BLOCKS=$((VOL / 5))
 [ "$ACTIVE_BLOCKS" -gt 26 ] && ACTIVE_BLOCKS=26
 
-# Split into normal range (0-100%, up to 20 blocks) and boost range (105-130%, up to 6 blocks)
+# Split into normal range (0-100%, 20 blocks) and boost range (105-130%, 6 blocks)
 if [ "$ACTIVE_BLOCKS" -le 20 ]; then
     GREEN_COUNT=$ACTIVE_BLOCKS
     ORANGE_COUNT=0
@@ -53,30 +53,49 @@ ORANGE_BAR=""
 EMPTY_BAR=""
 [ "$EMPTY_COUNT" -gt 0 ] && EMPTY_BAR=$(printf "%0.s█" $(seq 1 $EMPTY_COUNT))
 
-BAR_MARKUP="<span font='22' foreground='lightgreen'>${GREEN_BAR}</span><span font='22' foreground='#ff7700'>${ORANGE_BAR}</span><span font='22' foreground='#2a2a2a'>${EMPTY_BAR}</span>"
+# --- DYNAMIC RESOLUTION & SCALING ---
+# Extract Primary Monitor: Width, Height, Origin X, Origin Y
+read MON_W MON_H ORIGX ORIGY <<< "$(xrandr --query | awk '/ primary/{split($4, a, "[+x]"); print a[1], a[2], a[3], a[4]}')"
 
-# Get primary monitor origin with fallback
-if [ -x "$HOME/.local/bin/get_primary_origin.sh" ]; then
-    read ORIGX ORIGY <<< "$("$HOME/.local/bin/get_primary_origin.sh")"
+# Fallbacks if primary flag is missing
+: "${MON_W:=2560}"; : "${MON_H:=1440}"; : "${ORIGX:=0}"; : "${ORIGY:=0}"
+
+# Scale font size, window width, and height by display height
+if [ "$MON_H" -ge 2160 ]; then
+    # 4K (2160p)
+    FONT_SZ=32
+    OSD_WIDTH=1020
+    OSD_HEIGHT=60
+elif [ "$MON_H" -le 1080 ]; then
+    # 1080p
+    FONT_SZ=16
+    OSD_WIDTH=500
+    OSD_HEIGHT=32
 else
-    ORIGX=0
-    ORIGY=0
+    # 1440p default
+    FONT_SZ=22
+    OSD_WIDTH=680
+    OSD_HEIGHT=40
 fi
-: "${ORIGX:=0}"; : "${ORIGY:=0}"
 
-# Centering for 1440p (2560 - 680) / 2 = 940
-POSX=$((ORIGX + 940))
-POSY=$((ORIGY + 1100))
+BAR_MARKUP="<span font='${FONT_SZ}' foreground='lightgreen'>${GREEN_BAR}</span><span font='${FONT_SZ}' foreground='#ff7700'>${ORANGE_BAR}</span><span font='${FONT_SZ}' foreground='#2a2a2a'>${EMPTY_BAR}</span>"
 
-# Show OSD (added --no-focus)
+# Dynamic Centering:
+# Horizontal center: (Monitor Width - OSD Width) / 2
+POSX=$(( ORIGX + (MON_W - OSD_WIDTH) / 2 ))
+
+# Vertical: ~78% down the screen regardless of resolution
+POSY=$(( ORIGY + (MON_H * 78 / 100) ))
+
+# Show OSD
 yad --text="$BAR_MARKUP" \
     --undecorated \
     --no-buttons \
     --skip-taskbar \
     --on-top \
     --no-focus \
-    --width=680 \
-    --height=40 \
+    --width="$OSD_WIDTH" \
+    --height="$OSD_HEIGHT" \
     --posx="$POSX" --posy="$POSY" \
     --timeout=1 \
     --title="vol_osd" \
@@ -85,7 +104,7 @@ yad --text="$BAR_MARKUP" \
 
 YAD_PID=$!
 
-# Force window above fullscreen via override-redirect without losing game input
+# Force window above fullscreen via override-redirect without losing input
 (
     for _ in {1..20}; do
         WID=$(xdotool search --pid "$YAD_PID" --onlyvisible 2>/dev/null | tail -n 1)
@@ -94,7 +113,6 @@ YAD_PID=$!
     done
 
     if [ -n "$WID" ]; then
-        # Unmap, set override_redirect, remap, and raise
         xdotool windowunmap "$WID"
         xdotool set_window --overrideredirect 1 "$WID"
         xdotool windowmap "$WID"
