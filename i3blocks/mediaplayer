@@ -2,9 +2,9 @@
 
 # Handle mouse clicks
 case $BLOCK_BUTTON in
-    2) playerctl play-pause ;; # Left click
-    5) playerctl next ;;       # Scroll up
-    4) playerctl previous ;;   # Scroll down
+    1) playerctl play-pause ;; # Button 1 is left click (2 is middle click)
+    4) playerctl previous ;;   # Scroll up is usually button 4
+    5) playerctl next ;;       # Scroll down is usually button 5
 esac
 
 # Check status
@@ -18,10 +18,16 @@ else
     exit 0
 fi
 
-# Fetch metadata in one call and escape Pango entities (&, <, >)
-text=$(playerctl metadata --format '{{artist}} - {{title}}' 2>/dev/null | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+# 1. Fetch raw metadata
+raw_text=$(playerctl metadata --format '{{artist}} - {{title}}' 2>/dev/null)
 
-if [ -n "$text" ]; then
-    # Print icon and truncated text safely using printf
-    printf "%s %-.35s\n" "$icon" "$text"
+if [ -n "$raw_text" ]; then
+    # 2. Multibyte-safe character truncation in Bash
+    truncated="${raw_text}"
+
+    # 3. Escape Pango entities AFTER truncating so entities don't get sliced
+    escaped=$(printf '%s' "$truncated" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+
+    # 4. Output to i3blocks
+    echo "$icon $escaped"
 fi
