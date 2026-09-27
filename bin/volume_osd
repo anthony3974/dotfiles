@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Input volume change (like +5, -5, or 50)
+INPUT="$1"
+
+# Kill previous instances so repeated presses reset cleanly
+killall -q -w -n 1 vol_osd 2>/dev/null
+pkill -f "title=vol_osd" 2>/dev/null
+
+# If it's a relative change (+ / -), calculate target volume
+if [[ "$INPUT" =~ ^[+-] ]]; then
+    CURRENT=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+    TARGET=$((CURRENT + INPUT))
+else
+    TARGET=$INPUT
+fi
+
+# Clamp between 0 and 100 BEFORE pactl
+if [ "$TARGET" -gt 100 ]; then TARGET=100; fi
+if [ "$TARGET" -lt 0 ]; then TARGET=0; fi
+
+# Apply clamped volume
+pactl set-sink-volume @DEFAULT_SINK@ "${TARGET}%"
+
+# Get current volume (numeric only)
+VOL=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+
+# Build bar: each block = 5%
+BLOCKS=$((VOL / 5))
+if [ "$BLOCKS" -gt 0 ]; then
+    BAR=$(printf "%0.s█" $(seq 1 $BLOCKS))
+else
+    BAR=""
+fi
+
+# Get origin X, Y, plus monitor Width and Height
+read ORIGX ORIGY MON_W MON_H <<< "$(xrandr --query | awk '/ primary/{split($4, a, "[+x]"); print a[3], a[4], a[1], a[2]}')"
+
+# Fallbacks if xrandr primary isn't flagged
+: "${ORIGX:=0}"; : "${ORIGY:=0}"; : "${MON_W:=2560}"; : "${MON_H:=1440}"
+
+OSD_WIDTH=465
+OSD_HEIGHT=40
+
+# --- PERCENTAGE CALCULATIONS ---
+# Horizontally centered (50% minus half the OSD width):
+POSX=$(( ORIGX + (MON_W * 50 / 100) - (OSD_WIDTH / 2) ))
+
+# Vertically placed at 80% down the screen:
+POSY=$(( ORIGY + (MON_H * 80 / 100) ))
+
+# Launch yad
+yad --text="<span font='22' foreground='lightgreen'>$BAR</span>" \
+    --undecorated \
+    --no-buttons \
+    --skip-taskbar \
+    --on-top \
+    --width=465 \
+    --height=40 \
+    --posx="$POSX" --posy="$POSY" \
+    --timeout=1 \
+    --title="vol_osd" \
+    --fixed \
+    >/dev/null 2>&1 &
+
+YAD_PID=$!
+
+# Force window above Kodi via override-redirect
+(
+    # Wait for the X window to map
+    for _ in {1..20}; do
+        WID=$(xdotool search --pid "$YAD_PID" --onlyvisible 2>/dev/null | tail -n 1)
+        [ -n "$WID" ] && break
+        sleep 0.01
+    done
+
+    if [ -n "$WID" ]; then
+        xdotool set_window --overrideredirect 1 "$WID"
+        xdotool windowraise "$WID"
+    fi
+) &
