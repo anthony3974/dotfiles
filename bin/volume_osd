@@ -53,6 +53,10 @@ ORANGE_BAR=""
 EMPTY_BAR=""
 [ "$EMPTY_COUNT" -gt 0 ] && EMPTY_BAR=$(printf "%0.s█" $(seq 1 $EMPTY_COUNT))
 
+# Color text to orange if boosted past 100%, otherwise lightgreen
+TEXT_COLOR="lightgreen"
+[ "$VOL" -gt 100 ] && TEXT_COLOR="#ff7700"
+
 # --- DYNAMIC RESOLUTION & SCALING ---
 # Extract Primary Monitor: Width, Height, Origin X, Origin Y
 read MON_W MON_H ORIGX ORIGY <<< "$(xrandr --query | awk '/ primary/{split($4, a, "[+x]"); print a[1], a[2], a[3], a[4]}')"
@@ -64,21 +68,21 @@ read MON_W MON_H ORIGX ORIGY <<< "$(xrandr --query | awk '/ primary/{split($4, a
 if [ "$MON_H" -ge 2160 ]; then
     # 4K (2160p)
     FONT_SZ=32
-    OSD_WIDTH=1020
-    OSD_HEIGHT=60
+    OSD_WIDTH=1150
+    OSD_HEIGHT=64
 elif [ "$MON_H" -le 1080 ]; then
     # 1080p
     FONT_SZ=16
-    OSD_WIDTH=500
-    OSD_HEIGHT=32
+    OSD_WIDTH=580
+    OSD_HEIGHT=34
 else
     # 1440p default
     FONT_SZ=22
-    OSD_WIDTH=680
-    OSD_HEIGHT=40
+    OSD_WIDTH=780
+    OSD_HEIGHT=44
 fi
 
-BAR_MARKUP="<span font='${FONT_SZ}' foreground='lightgreen'>${GREEN_BAR}</span><span font='${FONT_SZ}' foreground='#ff7700'>${ORANGE_BAR}</span><span font='${FONT_SZ}' foreground='#2a2a2a'>${EMPTY_BAR}</span>"
+BAR_MARKUP="<span size='${FONT_SZ}000' weight='bold' font_family='monospace' foreground='${TEXT_COLOR}'>$(printf "%3d%% " "$VOL")</span><span size='${FONT_SZ}000' foreground='lightgreen'>${GREEN_BAR}</span><span size='${FONT_SZ}000' foreground='#ff7700'>${ORANGE_BAR}</span><span size='${FONT_SZ}000' foreground='#2a2a2a'>${EMPTY_BAR}</span>"
 
 # Dynamic Centering:
 # Horizontal center: (Monitor Width - OSD Width) / 2
