@@ -3,6 +3,7 @@
 # Handle mouse clicks
 case $BLOCK_BUTTON in
     1) playerctl play-pause ;; # Button 1 is left click (2 is middle click)
+    2) playerctl play-pause ;; # Button 1 is left click (2 is middle click)
     4) playerctl previous ;;   # Scroll up is usually button 4
     5) playerctl next ;;       # Scroll down is usually button 5
 esac
