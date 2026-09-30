@@ -2,10 +2,6 @@
 
 INPUT="$1"
 
-# Kill previous instances so repeated presses reset cleanly
-killall -q -w -n 1 vol_osd 2>/dev/null
-pkill -f "title=vol_osd" 2>/dev/null
-
 # Get current volume first
 CURRENT=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -o '[0-9]\+%' | head -1 | tr -d '%')
 : "${CURRENT:=0}"
