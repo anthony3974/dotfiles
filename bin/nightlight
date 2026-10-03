@@ -23,6 +23,7 @@ schedules=(
     "420  3500 0.80"  # 07:00 (Start of 7:00-7:59 block)
     "480  4000 0.90"  # 08:00 (Start of 8:00-8:59 block)
     "540  5000 1.00"  # 09:00 (Daytime start)
+    "900  5000 1.00"  # 15:00 (Stay bright till 3:00 to 4:00 trans.)
     "960  4500 0.90"  # 16:00 (Afternoon start)
     "1140 3500 0.90"  # 19:00 (Evening start)
     "1320 2800 0.80"  # 22:00 (Start of sleep transition)
