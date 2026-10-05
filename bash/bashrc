@@ -96,3 +96,7 @@ di() {
 if [ -f ~/.bashrc.local ]; then
     . ~/.bashrc.local
 fi
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/anthony/.local/bin:$PATH"
