@@ -22,3 +22,5 @@ Thumbs.db
 id_rsa
 id_ed25519
 local.conf
+bin/agy
+bin/llm
