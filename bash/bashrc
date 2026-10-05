@@ -67,6 +67,7 @@ alias musync='rsync -rtvP --delete /mnt/sam/musicisos/ /mnt/whole/musicisos/'
 alias y='tsp ytm'
 alias ya='tsp ytma'
 alias bc='bc -l'
+alias rsync-fat32='rsync -rtv --modify-window=2 --size-only --exclude="*.iso"'
 
 # My functions
 md() {
