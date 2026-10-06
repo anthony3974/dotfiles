@@ -29,11 +29,12 @@ command=awk '{l=$1; col=(l>=16.0?"#e06c75":(l>=8.0?"#e5c07b":"#ffffff")); printf
 interval=10
 
 [battery]
-command=sh -c 'cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1); stat=$(cat /sys/cla>
+markup=pango
+command=sh -c 'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1); [ -d "$b" ] || exit 0; cap=$(cat "$b/capacity" 2>/dev/null); stat=$(cat "$b/status" 2>/dev/null); [ -n "$cap" ] && awk -v c="$cap" -v s="$stat" '\''BEGIN { col=(c<=15?"#e06c75":(c<=30?"#e5c07b":"#ffffff")); printf "<span foreground=\"%s\">BAT:</span> <span foreground=\"#ffffff\">%d%% (%s)</span>\n", col, c, s }'\'
 interval=30
 
 [disk]
-label=DF: 
+label=DISK: 
 command=df -k / | awk 'NR==2 {printf "%dG (%.2fT)\n", $4/(1024*1024), $4/(1024*1024*1024)}'
 interval=10
 
