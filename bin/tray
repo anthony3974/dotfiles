@@ -13,9 +13,9 @@ TOGGLE_FILE = os.path.join(HOME, '.xsct.file')
 COMMANDS = {
     "xsct 5500 (Day)": "xsct 5500",
     "xsct 5000 0.9 (Dayy)": "xsct 5000 0.9",
+    "xsct 4000 0.7 (Day Dark)": "xsct 4000 0.7",
     "xsct 3000 (Evening)": "xsct 3000",
     "xsct 2200 0.7 (Night)": "xsct 2200 0.7",
-    "xsct 4000 0.7 (Day Dark)": "xsct 4000 0.7",
     "Res 4K 165Hz": f"bash {HOME}/.local/bin/res-4k-165",
     "Res 4K 120Hz": f"bash {HOME}/.local/bin/res-4k-120",
     "Res 4K 60Hz": f"bash {HOME}/.local/bin/res-4k-60",
