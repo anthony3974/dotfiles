@@ -2,9 +2,9 @@
 import pystray, subprocess, os, time
 from PIL import Image, ImageDraw
 
+# version 2.4.1 reordered menuitems for order
 # version 2.4 added xsct pause for 1 hour with auto-expiration
 # version 2.3 updated display scripts to res-*
-# version 2.2 added more xsct presets
 
 HOME = os.path.expanduser('~')
 TOGGLE_FILE = os.path.join(HOME, '.xsct.file')
