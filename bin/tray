@@ -2,8 +2,9 @@
 import pystray, subprocess, os
 from PIL import Image, ImageDraw
 
-# version 2.3 # version 2.2 added more xsct persets
-# version 2.1 - caffine removed
+# version 2.4 adding xsct pause for 1 hour
+# version 2.3 updated display scripts
+# version 2.2 added more xsct presets
 
 HOME = os.path.expanduser('~')
 TOGGLE_FILE = os.path.join(HOME, '.xsct.file')
@@ -15,12 +16,12 @@ COMMANDS = {
     "xsct 3000 (Evening)": "xsct 3000",
     "xsct 2200 0.7 (Night)": "xsct 2200 0.7",
     "xsct 4000 0.7 (Day Dark)": "xsct 4000 0.7",
-    "Run xrandr Scale": f"bash {HOME}/.local/bin/dispayscale",
-    "Run xrandr 4K": f"bash {HOME}/.local/bin/dispay4k",
-    "Run xrandr Reset": f"bash {HOME}/.local/bin/dispay",
-    "Run xrandr Dup": f"bash {HOME}/.local/bin/dispaydup",
-    "Run xrandr 1080": f"bash {HOME}/.local/bin/dispay1080",
-    "Run xrandr Right": f"bash {HOME}/.local/bin/dispayright",
+    "Res 4K 165Hz": f"bash {HOME}/.local/bin/res-4k-165",
+    "Res 4K 120Hz": f"bash {HOME}/.local/bin/res-4k-120",
+    "Res 4K 60Hz": f"bash {HOME}/.local/bin/res-4k-60",
+    "Res 1440p 165Hz": f"bash {HOME}/.local/bin/res-1440-165",
+    "Res 1080p 360Hz": f"bash {HOME}/.local/bin/res-1080-360",
+    "Res 1080p 60Hz": f"bash {HOME}/.local/bin/res-1080-60",
 }
 
 def run(cmd):
