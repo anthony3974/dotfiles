@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
 
+# version 3.1
+# Added 1-hour pause expiration and CLI commands (pause, resume, status, toggle).
 # version 3.0
 # Smoothly interpolates color temperature and brightness based on time.
 
 FILE_PATH="$HOME/.xsct.file"
-
-if [[ -f "$FILE_PATH" ]]; then
-    echo "Lock file found, exiting."
-    exit 0
-fi
-
-# Get current time in total minutes since midnight (0 - 1439)
-read -r current_hour current_min <<< "$(date +'%_H %_M')"
-now=$(( current_hour * 60 + current_min ))
+now_ts=$(date +%s)
 
 # Define schedule anchor points: (MinutesSinceMidnight, Temp, Brightness)
 # Updated to your requested 7:00-7:59 and 8:00-8:59 breakdown.
@@ -31,36 +25,157 @@ schedules=(
     "1440 2000 0.50"  # 24:00 / 00:00 wrap-around anchor
 )
 
-## Find the active interval [t1, t2]
-# These act as safe fallback default values
-t1_min=0; t1_temp=2000; t1_bri="0.60"
-t2_min=1440; t2_temp=2000; t2_bri="0.60"
+calculate_target() {
+    # Get current time in total minutes since midnight (0 - 1439)
+    read -r current_hour current_min <<< "$(date +'%_H %_M')"
+    now=$(( current_hour * 60 + current_min ))
 
-for ((i=0; i<${#schedules[@]}-1; i++)); do
-    read -r m1 temp1 bri1 <<< "${schedules[i]}"
-    read -r m2 temp2 bri2 <<< "${schedules[i+1]}"
+    ## Find the active interval [t1, t2]
+    # These act as safe fallback default values
+    t1_min=0; t1_temp=2000; t1_bri="0.60"
+    t2_min=1440; t2_temp=2000; t2_bri="0.60"
 
-    if (( now >= m1 && now < m2 )); then
-        t1_min=$m1; t1_temp=$temp1; t1_bri=$bri1
-        t2_min=$m2; t2_temp=$temp2; t2_bri=$bri2
-        break
+    for ((i=0; i<${#schedules[@]}-1; i++)); do
+        read -r m1 temp1 bri1 <<< "${schedules[i]}"
+        read -r m2 temp2 bri2 <<< "${schedules[i+1]}"
+
+        if (( now >= m1 && now < m2 )); then
+            t1_min=$m1; t1_temp=$temp1; t1_bri=$bri1
+            t2_min=$m2; t2_temp=$temp2; t2_bri=$bri2
+            break
+        fi
+    done
+
+    # Linear interpolation formula: val1 + (val2 - val1) * (now - t1) / (t2 - t1)
+    span=$(( t2_min - t1_min ))
+    if (( span <= 0 )); then
+        span=1 # Prevent division by zero
     fi
-done
 
-# Linear interpolation formula: val1 + (val2 - val1) * (now - t1) / (t2 - t1)
-span=$(( t2_min - t1_min ))
-if (( span <= 0 )); then
-    span=1 # Prevent division by zero
-fi
+    elapsed=$(( now - t1_min ))
 
-elapsed=$(( now - t1_min ))
+    # Calculate interpolated temperature (integers)
+    target_temp=$(( t1_temp + (t2_temp - t1_temp) * elapsed / span ))
 
-# Calculate interpolated temperature (integers)
-target_temp=$(( t1_temp + (t2_temp - t1_temp) * elapsed / span ))
+    # Calculate interpolated brightness (using float math via awk since brightness is a decimal like 0.90)
+    target_bri=$(awk -v b1="$t1_bri" -v b2="$t2_bri" -v el="$elapsed" -v sp="$span" \
+        'BEGIN { printf "%.2f", b1 + (b2 - b1) * el / sp }')
+}
 
-# Calculate interpolated brightness (using float math via awk since brightness is a decimal like 0.90)
-target_bri=$(awk -v b1="$t1_bri" -v b2="$t2_bri" -v el="$elapsed" -v sp="$span" \
-    'BEGIN { printf "%.2f", b1 + (b2 - b1) * el / sp }')
+apply_schedule() {
+    calculate_target
+    xsct "$target_temp" "$target_bri"
+}
 
-# Apply via xsct
-xsct "$target_temp" "$target_bri"
+check_lock() {
+    if [[ ! -f "$FILE_PATH" ]]; then
+        return 0 # No lock
+    fi
+
+    content=$(tr -d '[:space:]' < "$FILE_PATH")
+
+    # 0 explicitly disables the lock
+    if [[ "$content" == "0" ]]; then
+        rm -f "$FILE_PATH"
+        echo "Lock disabled (0 in lock file). Resuming schedule."
+        return 0
+    fi
+
+    # hold / forever holds indefinitely
+    if [[ "$content" == "hold" || "$content" == "forever" ]]; then
+        echo "Nightlight held indefinitely by $FILE_PATH. Exiting."
+        exit 0
+    fi
+
+    # Explicit unix timestamp
+    if [[ "$content" =~ ^[0-9]{10,}$ ]]; then
+        if (( content > now_ts )); then
+            remaining=$(( (content - now_ts + 59) / 60 ))
+            echo "Lock file active. Paused for ${remaining} more minute(s). Exiting."
+            exit 0
+        else
+            echo "Pause expired (timestamp passed). Removing lock file."
+            rm -f "$FILE_PATH"
+            return 0
+        fi
+    fi
+
+    # Otherwise (e.g. 1, touched/empty, or string): use 1-hour expiration from file mtime
+    mtime=$(stat -c %Y "$FILE_PATH" 2>/dev/null || echo "$now_ts")
+    expire_ts=$(( mtime + 3600 ))
+
+    if (( now_ts < expire_ts )); then
+        remaining=$(( (expire_ts - now_ts + 59) / 60 ))
+        echo "Lock file active (1 hour timer). Paused for ${remaining} more minute(s). Exiting."
+        exit 0
+    else
+        echo "Pause expired (> 1 hour since lock modified). Removing lock file."
+        rm -f "$FILE_PATH"
+        return 0
+    fi
+}
+
+# CLI command handling
+case "$1" in
+    pause)
+        mins="${2:-60}"
+        expire=$(( now_ts + mins * 60 ))
+        echo "$expire" > "$FILE_PATH"
+        echo "Nightlight paused for ${mins} minute(s) (until $(date -d "@$expire" +'%H:%M:%S'))."
+        exit 0
+        ;;
+    resume|unpause)
+        rm -f "$FILE_PATH"
+        echo "Nightlight lock removed. Applying schedule..."
+        apply_schedule
+        exit 0
+        ;;
+    toggle)
+        if [[ -f "$FILE_PATH" ]]; then
+            rm -f "$FILE_PATH"
+            echo "Nightlight unpaused. Applying schedule..."
+            apply_schedule
+        else
+            mins="${2:-60}"
+            expire=$(( now_ts + mins * 60 ))
+            echo "$expire" > "$FILE_PATH"
+            echo "Nightlight paused for ${mins} minute(s) (until $(date -d "@$expire" +'%H:%M:%S'))."
+        fi
+        exit 0
+        ;;
+    status)
+        echo "=== Nightlight Status ==="
+        if [[ -f "$FILE_PATH" ]]; then
+            content=$(tr -d '[:space:]' < "$FILE_PATH")
+            if [[ "$content" == "0" ]]; then
+                echo "Pause status: Disabled (contains 0)"
+            elif [[ "$content" == "hold" || "$content" == "forever" ]]; then
+                echo "Pause status: Held indefinitely"
+            elif [[ "$content" =~ ^[0-9]{10,}$ ]] && (( content > now_ts )); then
+                rem=$(( (content - now_ts + 59) / 60 ))
+                echo "Pause status: Active (Expires in ${rem} min at $(date -d "@$content" +'%H:%M:%S'))"
+            elif [[ "$content" =~ ^[0-9]{10,}$ ]] && (( content <= now_ts )); then
+                echo "Pause status: Expired timestamp"
+            else
+                mtime=$(stat -c %Y "$FILE_PATH" 2>/dev/null || echo "$now_ts")
+                exp=$(( mtime + 3600 ))
+                if (( now_ts < exp )); then
+                    rem=$(( (exp - now_ts + 59) / 60 ))
+                    echo "Pause status: Active (1-hour lock, ${rem} min remaining, until $(date -d "@$exp" +'%H:%M:%S'))"
+                else
+                    echo "Pause status: Expired (> 1 hour old)"
+                fi
+            fi
+        else
+            echo "Pause status: Inactive (Normal schedule running)"
+        fi
+        calculate_target
+        echo "Current target: ${target_temp}K at ${target_bri} brightness"
+        exit 0
+        ;;
+    *)
+        # Normal execution (cron or manual run without args)
+        check_lock
+        apply_schedule
+        ;;
+esac

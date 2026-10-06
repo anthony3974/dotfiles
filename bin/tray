@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import pystray, subprocess, os
+import pystray, subprocess, os, time
 from PIL import Image, ImageDraw
 
-# version 2.4 adding xsct pause for 1 hour
-# version 2.3 updated display scripts
+# version 2.4 added xsct pause for 1 hour with auto-expiration
+# version 2.3 updated display scripts to res-*
 # version 2.2 added more xsct presets
 
 HOME = os.path.expanduser('~')
@@ -28,22 +28,64 @@ def run(cmd):
     # start_new_session prevents child scripts from freezing the tray applet
     subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
-def toggle_file():
-    if os.path.exists(TOGGLE_FILE):
-        os.remove(TOGGLE_FILE)
-    else:
-        open(TOGGLE_FILE, 'w').close()
+def is_paused(item=None):
+    if not os.path.exists(TOGGLE_FILE):
+        return False
+    try:
+        with open(TOGGLE_FILE, 'r') as f:
+            content = f.read().strip()
+        if content == '0':
+            return False
+        if content in ('hold', 'forever'):
+            return True
+        now = time.time()
+        if content.isdigit() and len(content) >= 10:
+            if int(content) <= now:
+                try:
+                    os.remove(TOGGLE_FILE)
+                except OSError:
+                    pass
+                return False
+            return True
+        mtime = os.path.getmtime(TOGGLE_FILE)
+        if now - mtime >= 3600:
+            try:
+                os.remove(TOGGLE_FILE)
+            except OSError:
+                pass
+            return False
+        return True
+    except Exception:
+        return False
 
-def is_toggled(item):
-    return os.path.exists(TOGGLE_FILE)
+def pause_1hour():
+    try:
+        with open(TOGGLE_FILE, 'w') as f:
+            f.write(str(int(time.time() + 3600)))
+    except Exception:
+        pass
+
+def toggle_pause():
+    if is_paused():
+        try:
+            if os.path.exists(TOGGLE_FILE):
+                os.remove(TOGGLE_FILE)
+        except OSError:
+            pass
+        run(f"bash {HOME}/.local/bin/nightlight resume")
+    else:
+        pause_1hour()
 
 def click(i, item):
     name = str(item)
     # 2. Logic automatically looks up the command in the dictionary
     if name in COMMANDS:
         run(COMMANDS[name])
-    elif name == "Toggle xsct File":
-        toggle_file()
+        # Auto-pause nightlight for 1 hour when an xsct preset is clicked
+        if name.startswith("xsct"):
+            pause_1hour()
+    elif name in ("Pause Nightlight (1h)", "Toggle xsct File"):
+        toggle_pause()
     elif name == "Quit":
         i.stop()
 
@@ -55,7 +97,7 @@ ImageDraw.Draw(img).rectangle([24, 24, 40, 40], fill='red')
 # 3. Dynamically build the menu from the dictionary
 menu_items = [pystray.MenuItem(name, click) for name in COMMANDS.keys()]
 menu_items.extend([
-    pystray.MenuItem("Toggle xsct File", click, checked=is_toggled),
+    pystray.MenuItem("Pause Nightlight (1h)", click, checked=is_paused),
     pystray.MenuItem("Quit", click)
 ])
 
