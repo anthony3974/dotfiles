@@ -42,16 +42,30 @@ alias li='ls -1N'
 alias grep='grep --color=auto'
 
 # 'PS1' prompt configuration
-PS1='\[\e[36m\]\u\[\e[31m\]@\[\e[32m\]\h \[\e[33m\]\W\[\e[32m\]\$\[\e[37m\] '
-# Standard Colors
-# 30: Black         \[\e[30m\]
-# 31: Red           \[\e[31m\]
-# 32: Green         \[\e[32m\]
-# 33: Yellow        \[\e[33m\]
-# 34: Blue          \[\e[34m\]
-# 35: Magenta       \[\e[35m\]
-# 36: Cyan          \[\e[36m\]
-# 37: White         \[\e[37m\]
+PS1='\[\e[1;36m\]\u\[\e[1;31m\]@\[\e[1;32m\]\h \[\e[1;33m\]\W\[\e[1;32m\]\$\[\e[0m\] '
+# Standard / Dim (Foreground)
+# 31: Red            \[\e[31m\]
+# 32: Green          \[\e[32m\]
+# 33: Yellow         \[\e[33m\]
+# 34: Blue           \[\e[34m\]
+# 35: Magenta        \[\e[35m\]
+# 36: Cyan           \[\e[36m\]
+# 37: White          \[\e[37m\]
+
+# Bold / Bright (Foreground)
+# 1;31: Bright Red                \[\e[1;31m\]  or  \[\e[91m\]
+# 1;32: Bright Green              \[\e[1;32m\]  or  \[\e[92m\]
+# 1;33: Bright Yellow             \[\e[1;33m\]  or  \[\e[93m\]
+# 1;34: Bright Blue               \[\e[1;34m\]  or  \[\e[94m\]
+# 1;35: Bright Magenta            \[\e[1;35m\]  or  \[\e[95m\]
+# 1;36: Bright Cyan               \[\e[1;36m\]  or  \[\e[96m\]
+# 1;37: Bright White              \[\e[1;37m\]  or  \[\e[97m\]
+
+# Text Attributes / Reset
+# 0:  Reset all attributes        \[\e[0m\]
+# 1:  Bold/Bright                 \[\e[1m\]
+# 2:  Dim/Faint                   \[\e[2m\]
+# 4:  Underline                   \[\e[4m\]
 
 # My aliases
 alias xxx='xmodmap ~/.Xmodmap'
@@ -70,6 +84,7 @@ alias bc='bc -l'
 alias rsync-fat32='rsync -rtvP --modify-window=2 --size-only --exclude="*.iso"'
 alias rsync-fat32m='rsync -rtvP --modify-window=2 --size-only --exclude="*.iso" --exclude="*MetallicasCds*" --delete-excluded'
 alias media='mediainfo'
+alias mi='mediainfo'
 
 
 # My functions
