@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
+# version 3.3
+# Added 'on' and 'off' aliases for resume and pause.
 # version 3.2
 # Added help menu and CLI enhancements.
 # version 3.1
 # Added 1-hour pause expiration and CLI commands (pause, resume, status, toggle).
-# version 3.0
-# Smoothly interpolates color temperature and brightness based on time.
 
 FILE_PATH="$HOME/.xsct.file"
 now_ts=$(date +%s)
@@ -125,12 +125,12 @@ Usage:
     nightlight [command]
 
 Commands:
-    status                Show current pause status and target temp/brightness
-    pause [MINS|hold]     Pause schedule for MINS minutes (default: 60) or hold indefinitely
-    resume, unpause       Remove pause lock and immediately apply scheduled settings
-    toggle [MINS|hold]    Toggle pause on/off (default: 60 minutes when pausing)
-    apply, run            Explicitly apply current schedule (subject to active pause)
-    help, -h, --help      Show this help menu
+    status                 Show current pause status and target temp/brightness
+    pause, off [MINS|hold] Pause schedule for MINS minutes (default: 60) or hold indefinitely
+    resume, unpause, on    Remove pause lock and immediately apply scheduled settings
+    toggle [MINS|hold]     Toggle pause on/off (default: 60 minutes when pausing)
+    apply, run             Explicitly apply current schedule (subject to active pause)
+    help, -h, --help       Show this help menu
 
 Default:
     Running without arguments applies the calculated schedule (used by cron).
@@ -146,7 +146,7 @@ case "$1" in
         show_help
         exit 0
         ;;
-    pause)
+    pause|off)
         if [[ "$2" == "hold" || "$2" == "forever" ]]; then
             echo "hold" > "$FILE_PATH"
             echo "Nightlight held indefinitely."
@@ -162,7 +162,7 @@ case "$1" in
         echo "Nightlight paused for ${mins} minute(s) (until $(date -d "@$expire" +'%H:%M:%S'))."
         exit 0
         ;;
-    resume|unpause)
+    resume|unpause|on)
         rm -f "$FILE_PATH"
         echo "Nightlight lock removed. Applying schedule..."
         apply_schedule
