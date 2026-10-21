@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DP="DisplayPort-0"
+HDMI="HDMI-A-0"
+
+# Register 4K 60Hz CVT-RB mode for the HDMI dummy plug if missing
+setup_hdmi_mode() {
+    if ! xrandr | grep -q "3840x2160_60"; then
+        xrandr --newmode "3840x2160_60" 533.00 3840 3888 3920 4000 2160 2163 2168 2222 +hsync -vsync 2>/dev/null || true
+        xrandr --addmode "$HDMI" "3840x2160_60" 2>/dev/null || true
+    fi
+}
+
+update_i3() {
+    # Ensure i3bar config exists
+    if [ -d "$HOME/.config/i3/conf.d" ]; then
+        cat << 'EOF' > "$HOME/.config/i3/conf.d/i3bar.conf"
+bar {
+        status_command i3blocks
+        font pango:monospace 11
+        height 24
+}
+EOF
+    fi
+
+    # Restart i3 to reposition workspaces and reapply wallpaper
+    if command -v i3-msg >/dev/null 2>&1; then
+        i3-msg restart >/dev/null 2>&1 || true
+    fi
+}
+
+switch_to_dummy() {
+    setup_hdmi_mode
+
+    # Prefer 4K 60Hz mode, fallback to standard 4K (30Hz) if unavailable
+    if xrandr | grep -A15 "^$HDMI connected" | grep -q "3840x2160_60"; then
+        xrandr --output "$HDMI" --mode 3840x2160_60 --primary --output "$DP" --off
+    else
+        xrandr --output "$HDMI" --mode 3840x2160 --primary --output "$DP" --off
+    fi
+
+    update_i3
+    command -v notify-send >/dev/null 2>&1 && notify-send -u normal "Display Switched" "Active: Dummy Plug (4K HDMI-A-0)" 2>/dev/null || true
+    echo "Active display: Dummy Plug (4K HDMI-A-0)"
+}
+
+switch_to_desk() {
+    xrandr --output "$DP" --mode 3840x2160 --rate 164.99 --primary --output "$HDMI" --off
+
+    update_i3
+    command -v notify-send >/dev/null 2>&1 && notify-send -u normal "Display Switched" "Active: Physical Monitor (4K 165Hz DisplayPort-0)" 2>/dev/null || true
+    echo "Active display: Physical Monitor (4K 165Hz DisplayPort-0)"
+}
+
+ACTION="${1:-toggle}"
+
+case "$ACTION" in
+    dummy|vnc|headless)
+        switch_to_dummy
+        ;;
+    desk|physical|dp)
+        switch_to_desk
+        ;;
+    auto)
+        # If physical monitor is connected, prioritize desk mode; otherwise dummy
+        if xrandr | grep -q "^$DP connected"; then
+            switch_to_desk
+        else
+            switch_to_dummy
+        fi
+        ;;
+    toggle)
+        # Toggle based on whether DisplayPort-0 is currently active
+        if xrandr --listactivemonitors | grep -q "$DP"; then
+            switch_to_dummy
+        else
+            switch_to_desk
+        fi
+        ;;
+    *)
+        echo "Usage: $0 [Toggle|desk|dummy|auto]"
+        exit 1
+        ;;
+esac

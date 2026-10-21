@@ -85,6 +85,7 @@ alias rsync-fat32='rsync -rtvP --modify-window=2 --size-only --exclude="*.iso"'
 alias rsync-fat32m='rsync -rtvP --modify-window=2 --size-only --exclude="*.iso" --exclude="*MetallicasCds*" --delete-excluded'
 alias media='mediainfo'
 alias mi='mediainfo'
+alias ddd='toggle-display'
 
 
 # My functions
@@ -92,7 +93,7 @@ md() {
     mkdir -p "$1" && cd "$1"
 }
 
-cdl() {
+cl() {
     cd "$1" && ls
 }
 

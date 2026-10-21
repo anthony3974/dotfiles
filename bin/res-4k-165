@@ -1,5 +1,5 @@
 #!/bin/sh
-xrandr --output DisplayPort-0 --mode 3840x2160 --rate 164.99
+xrandr --output DisplayPort-0 --mode 3840x2160 --rate 164.99 --output HDMI-A-0 --off
 
 cat << 'EOF' > ~/.config/i3/conf.d/i3bar.conf
 bar {
