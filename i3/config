@@ -93,6 +93,7 @@ bindsym button2 kill
 
 # App launchers
 bindsym $mod+Return exec kitty
+bindsym $mod+Shift+Return exec xfce4-terminal
 bindsym $mod+z exec --no-startup-id zen-browser
 bindsym $mod+x exec thunar
 bindsym $mod+o exec --no-startup-id QT_QPA_PLATFORMTHEME=qt6ct QT_SCALE_FACTOR=1.75 dolphin
