@@ -86,7 +86,8 @@ alias rsync-fat32m='rsync -rtvP --modify-window=2 --size-only --exclude="*.iso" 
 alias media='mediainfo'
 alias mi='mediainfo'
 alias ddd='toggle-display'
-
+alias .='pwd'
+alias ..='cd ../'
 
 # My functions
 md() {
