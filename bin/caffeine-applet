@@ -59,17 +59,38 @@ class CaffeineApplet:
         self.status_icon.connect('activate', self.on_left_click)
         self.status_icon.connect('popup-menu', self.on_right_click)
 
-        self.update_state(False)
+        self.is_active = self.read_inhibit()
+        self.refresh_icon()
+        GLib.timeout_add_seconds(1, self.poll_state)
+
+    XFCONF = ["xfconf-query", "-c", "xfce4-power-manager",
+              "-p", "/xfce4-power-manager/presentation-mode"]
+
+    def read_inhibit(self):
+        """xfconf presentation-mode is the source of truth (launchers also set it)"""
+        try:
+            out = subprocess.run(self.XFCONF, capture_output=True, text=True, timeout=3).stdout
+            return out.strip() == "true"
+        except Exception:
+            return self.is_active
 
     def set_inhibit(self, enable: bool):
         self.is_active = enable
+        subprocess.run(self.XFCONF + ["-s", "true" if enable else "false"], check=False)
 
-        subprocess.run([
-            "xfconf-query",
-            "-c", "xfce4-power-manager",
-            "-p", "/xfce4-power-manager/presentation-mode",
-            "-s", "true" if enable else "false"
-        ], check=False)
+    def poll_state(self):
+        """Pick up changes made outside the applet (prismlauncher/kodi wrappers, xfce tray)"""
+        actual = self.read_inhibit()
+        if actual != self.is_active:
+            self.is_active = actual
+            if not actual:
+                self.cancel_timer()
+            self.refresh_icon()
+        return True
+
+    def refresh_icon(self):
+        self.status_icon.set_from_pixbuf(self.pixbuf_active if self.is_active else self.pixbuf_inactive)
+        self.update_tooltip()
 
     def update_tooltip(self):
         """Dynamically calculates remaining time and updates the tooltip"""

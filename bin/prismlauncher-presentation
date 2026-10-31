@@ -1,4 +1,7 @@
 #!/bin/sh
-xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/presentation-mode -s true
-prismlauncher
-xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/presentation-mode -s false
+# Keep screen awake while prismlauncher runs; restore the previous state on exit
+P=/xfce4-power-manager/presentation-mode
+prev=$(xfconf-query -c xfce4-power-manager -p $P)
+xfconf-query -c xfce4-power-manager -p $P -s true
+trap 'xfconf-query -c xfce4-power-manager -p $P -s "${prev:-false}"' EXIT
+prismlauncher "$@"
