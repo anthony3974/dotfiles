@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Start/stop/status the local AI stack: Ollama, Kokoro TTS, Open WebUI.
+SERVICES=(ollama kokoro-tts open-webui)
+
+usage() { echo "usage: ai {start|stop|restart|status} [service...]  (services: ${SERVICES[*]})"; exit 1; }
+
+action=$1; shift
+[[ $action =~ ^(start|stop|restart|status)$ ]] || usage
+targets=("${@:-${SERVICES[@]}}")
+
+# stop in reverse order so the UI goes down before its backends
+[[ $action == stop ]] && mapfile -t targets < <(printf '%s\n' "${targets[@]}" | tac)
+
+if [[ $action == status ]]; then
+    for s in "${targets[@]}"; do
+        printf '%-12s %s\n' "$s" "$(systemctl is-active "$s")"
+    done
+    exit 0
+fi
+
+for s in "${targets[@]}"; do
+    echo "$action $s"
+    sudo systemctl "$action" "$s.service"
+done
