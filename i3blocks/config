@@ -8,15 +8,9 @@ command=~/.config/i3blocks/mediaplayer
 interval=2
 signal=11
 
-[wireless]
-label=W: 
-command=nmcli -t -f active,ssid dev wifi | awk -F: '$1=="yes"{print $2}' || echo "down"
+[network]
+command=~/.config/i3blocks/netip
 interval=10
-
-[ethernet]
-label=E: 
-command=sh -c 'IF=$(ls /sys/class/net | grep -vE "^(lo|wl|docker|virbr)" | head -n1); [ -n "$IF" ] && [ "$(cat /sys/class/net/$IF/operstate 2>/dev/null)" = "up" ] && echo "$(ip -4 -o addr show dev $IF | awk '\''{print $4}'\'' | cut -d/ -f1 | head -n1) ($(cat /sys/class/net/$IF/speed 2>/dev/null) Mb/s)" || echo "down"'
-interval=30
 
 [cpu_temp]
 markup=pango

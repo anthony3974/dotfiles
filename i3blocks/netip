@@ -1,0 +1,16 @@
+#!/bin/sh
+# Show IPv4 of every interface that is up and has an address (skips lo/docker/virbr/veth).
+out=""
+for d in /sys/class/net/*; do
+  i=${d##*/}
+  case $i in lo|docker*|virbr*|veth*|br-*) continue;; esac
+  [ "$(cat "$d/operstate" 2>/dev/null)" = "up" ] || continue
+  ip4=$(ip -4 -o addr show dev "$i" | awk '{print $4}' | cut -d/ -f1 | head -n1)
+  [ -n "$ip4" ] || continue
+  case $i in
+    wl*) tag="W"; extra=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '$1=="yes"{print $2; exit}');;
+    *)   tag="E"; sp=$(cat "$d/speed" 2>/dev/null); extra=${sp:+$sp Mb/s};;
+  esac
+  out="$out${out:+ | }$tag: $ip4${extra:+ ($extra)}"
+done
+echo "${out:-down}"
