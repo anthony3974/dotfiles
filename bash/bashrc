@@ -87,6 +87,9 @@ alias media='mediainfo'
 alias mi='mediainfo'
 alias ddd='toggle-display'
 alias ..='cd ../'
+alias gs='git status'
+alias ga='git add'
+alias gp='git push'
 
 # My functions
 md() {
