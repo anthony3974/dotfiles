@@ -4,4 +4,19 @@ P=/xfce4-power-manager/presentation-mode
 prev=$(xfconf-query -c xfce4-power-manager -p $P)
 xfconf-query -c xfce4-power-manager -p $P -s true
 trap 'xfconf-query -c xfce4-power-manager -p $P -s "${prev:-false}"' EXIT
+
+# Enable GGTU only when the display is running at 4K
+MODS="$HOME/.local/share/PrismLauncher/instances/26.3/minecraft/mods"
+res=$(xrandr --current | awk '/\*/ {print $1; exit}')
+width=${res%%x*}
+if [ "${width:-0}" -ge 3840 ]; then
+  for f in "$MODS"/*GGTU*.jar.disabled; do
+    [ -e "$f" ] && mv "$f" "${f%.disabled}"
+  done
+else
+  for f in "$MODS"/*GGTU*.jar; do
+    [ -e "$f" ] && mv "$f" "$f.disabled"
+  done
+fi
+
 prismlauncher "$@"
