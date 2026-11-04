@@ -14,6 +14,7 @@ font pango:monospace 8
 # System Trays & Daemons / has ready desktop file for 'dex'
 exec --no-startup-id blueman-applet
 exec --no-startup-id nm-applet
+exec --no-startup-id dunst
 exec --no-startup-id pasystray
 exec_always --no-startup-id picom -b
 exec --no-startup-id system-config-printer-applet
