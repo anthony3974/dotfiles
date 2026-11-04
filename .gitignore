@@ -24,3 +24,5 @@ id_ed25519
 local.conf
 bin/agy
 bin/llm
+bin/claude
+bin/unity
