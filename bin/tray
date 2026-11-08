@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import pystray, subprocess, os, time
+import pystray, subprocess, os, time, threading
 from PIL import Image, ImageDraw
 
+# version 2.5 refresh pause checkbox on click, on file change, and on expiry
 # version 2.4.1 reordered menuitems for order
 # version 2.4 added xsct pause for 1 hour with auto-expiration
 # version 2.3 updated display scripts to res-*
@@ -88,6 +89,23 @@ def click(i, item):
         toggle_pause()
     elif name == "Quit":
         i.stop()
+        return
+    refresh(i)
+
+def refresh(i, item=None):
+    # appindicator/gtk build the menu once; force checked= to be re-evaluated
+    i.update_menu()
+
+def watch(i):
+    # Keep the checkbox in sync with ~/.xsct.file (expiry, `nightlight pause/resume`)
+    i.visible = True
+    last = None
+    while True:
+        state = is_paused()
+        if state != last:
+            last = state
+            refresh(i)
+        time.sleep(2)
 
 # Generate icon
 img = Image.new('RGB', (64, 64), color='white')
@@ -95,10 +113,13 @@ ImageDraw.Draw(img).rectangle([14, 14, 52, 52], fill='black')
 ImageDraw.Draw(img).rectangle([24, 24, 40, 40], fill='red')
 
 # 3. Dynamically build the menu from the dictionary
-menu_items = [pystray.MenuItem(name, click) for name in COMMANDS.keys()]
+# Hidden default item: left-clicking the icon refreshes the menu state
+menu_items = [pystray.MenuItem("Refresh", refresh, default=True, visible=False)]
+menu_items += [pystray.MenuItem(name, click) for name in COMMANDS.keys()]
 menu_items.extend([
     pystray.MenuItem("Pause Nightlight (1h)", click, checked=is_paused),
     pystray.MenuItem("Quit", click)
 ])
 
-pystray.Icon("Control", img, menu=pystray.Menu(*menu_items)).run()
+pystray.Icon("Control", img, menu=pystray.Menu(*menu_items)).run(
+    setup=lambda i: threading.Thread(target=watch, args=(i,), daemon=True).start())
