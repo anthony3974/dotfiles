@@ -42,7 +42,7 @@ alias li='ls -1N'
 alias grep='grep --color=auto'
 
 # 'PS1' prompt configuration
-PS1='\[\e[1;36m\]\u\[\e[1;31m\]@\[\e[1;32m\]\h \[\e[1;33m\]\W\[\e[1;32m\]\$\[\e[0m\] '
+PS1='\[\e[1;35m\]\t \[\e[1;36m\]\u\[\e[1;31m\]@\[\e[1;32m\]\h \[\e[1;33m\]\W\[\e[1;32m\]\$\[\e[0m\] '
 # Standard / Dim (Foreground)
 # 31: Red            \[\e[31m\]
 # 32: Green          \[\e[32m\]
@@ -91,6 +91,7 @@ alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
+alias gl='git log --oneline -10'
 
 # My functions
 md() {
