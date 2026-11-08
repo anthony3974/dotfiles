@@ -26,3 +26,6 @@ bin/agy
 bin/llm
 bin/claude
 bin/unity
+
+# Python cache
+bin/__pycache__/
