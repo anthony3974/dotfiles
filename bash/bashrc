@@ -92,7 +92,8 @@ alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias gl='git log --oneline -10'
-alias game='cd ~/Documents/unity/Farming-Simulator-94/'
+alias fgame='cd ~/Documents/unity/Farming-Simulator-94/'
+alias lgame='cd ~/Documents/unity/Last-Lamp/'
 
 # My functions
 md() {
