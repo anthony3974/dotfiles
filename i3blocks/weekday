@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Day of the week, shown only on the desktop.
+# Per-machine switch: ~/.config/i3/local.conf is a symlink to i3/hosts/<host>.conf.
+[[ "$(readlink -f "$HOME/.config/i3/local.conf")" == */hosts/desktop.conf ]] || exit 0
+
+date '+%A'
