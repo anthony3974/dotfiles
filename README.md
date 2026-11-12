@@ -13,6 +13,7 @@ either path edits the tracked file.
 | `i3/conf.d/` | `~/.config/i3/conf.d` | extra i3 includes (e.g. `i3bar.conf`) |
 | `i3/hosts/desktop.conf`, `laptop.conf` | `~/.config/i3/local.conf` | per-machine i3 override (pick one) |
 | `i3blocks/` | `~/.config/i3blocks` | status bar config + `mediaplayer`, `volume` scripts |
+| `rofi/config.rasi` | `~/.config/rofi/config.rasi` | app launcher (`$mod+space`) matching and sorting |
 | `bin/` | `~/.local/bin` | personal scripts, on `PATH` |
 
 `i3/config` ends with `include` lines for `conf.d/i3bar.conf` and `local.conf`.
@@ -109,7 +110,22 @@ mv ~/.config/i3blocks ~/.config/i3blocks.bak 2>/dev/null || true
 ln -sfn ~/dotfiles/i3blocks ~/.config/i3blocks
 ```
 
-### 7. Apply Changes
+### 7. Configure Rofi
+
+```bash
+# Back up existing Rofi config, if any
+mkdir -p ~/.config/rofi
+mv ~/.config/rofi/config.rasi ~/.config/rofi/config.rasi.bak 2>/dev/null || true
+
+# Symlink shared config
+ln -sf ~/dotfiles/rofi/config.rasi ~/.config/rofi/config.rasi
+```
+
+This file lives in `~/.config/rofi`, not in the i3 config. It limits drun matching to
+app names and turns on sorting. Test with `rofi -show drun`, typing `steam` and
+`mission center`.
+
+### 8. Apply Changes
 
 ```bash
 i3-msg restart

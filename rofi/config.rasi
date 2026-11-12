@@ -1,0 +1,11 @@
+/* Rofi config. Symlinked from ~/.config/rofi/config.rasi.
+ * drun-match-fields: match app names only (ignores Exec, keywords, categories).
+ * sort: rank matches by fit instead of plain order.
+ * Untested: test "steam" and "mission center" in rofi -show drun.
+ * If a wrong match remains, also try: matching: "prefix";
+ */
+
+configuration {
+    drun-match-fields: "name";
+    sort: true;
+}
