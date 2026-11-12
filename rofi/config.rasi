@@ -5,7 +5,11 @@
  * If a wrong match remains, also try: matching: "prefix";
  */
 
+@theme "/usr/share/rofi/themes/solarized_alternate.rasi"
+
 configuration {
     drun-match-fields: "name";
     sort: true;
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
 }
