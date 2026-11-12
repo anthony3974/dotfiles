@@ -1,0 +1,13 @@
+! 1. Clear existing modifiers
+remove lock = Caps_Lock
+remove control = Control_R
+
+! 2. Remap Caps Lock (66) to Enter (Return)
+! Shift + Caps Lock will still trigger Caps_Lock
+keycode 66 = Return Caps_Lock
+
+! 3. Remap Menu (135) to Right Control
+keycode 135 = Control_R
+
+! 4. Re-add Control modifier
+add control = Control_R

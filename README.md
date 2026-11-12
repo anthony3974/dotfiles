@@ -14,6 +14,7 @@ either path edits the tracked file.
 | `i3/hosts/desktop.conf`, `laptop.conf` | `~/.config/i3/local.conf` | per-machine i3 override (pick one) |
 | `i3blocks/` | `~/.config/i3blocks` | status bar config + `mediaplayer`, `volume` scripts |
 | `rofi/config.rasi` | `~/.config/rofi/config.rasi` | app launcher (`$mod+space`) matching and sorting |
+| `xmodmap/Xmodmap` | `~/.Xmodmap` | X keyboard remapping |
 | `bin/` | `~/.local/bin` | personal scripts, on `PATH` |
 
 `i3/config` ends with `include` lines for `conf.d/i3bar.conf` and `local.conf`.
