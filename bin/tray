@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import pystray, subprocess, os, time, threading
+import os
+# i3bar only shows XEmbed icons; with libappindicator installed pystray would pick the
+# appindicator (SNI) backend and the icon would be invisible. Force the GTK/XEmbed backend.
+os.environ.setdefault('PYSTRAY_BACKEND', 'gtk')
+import pystray, subprocess, time, threading
 from PIL import Image, ImageDraw
 
 # version 2.5 refresh pause checkbox on click, on file change, and on expiry

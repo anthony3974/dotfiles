@@ -122,7 +122,13 @@ class CaffeineApplet:
         self.update_tooltip()
 
         if msg:
-            subprocess.run(["notify-send", "Caffeine", msg], check=False)
+            # Popen, not run: if the notification daemon hangs, don't freeze the GTK loop
+            try:
+                subprocess.Popen(["notify-send", "Caffeine", msg],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 start_new_session=True)
+            except OSError:
+                pass
 
     def on_left_click(self, icon):
         """Left click toggles infinite lock suppression"""

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Size the X cursor from the screen like Arch does by default: shortest side / 48
+# (1080p -> 22, 1440p -> 30, 4K -> 45). Fedora's /etc/X11/Xresources sets Xft.dpi: 96,
+# which switches that auto-sizing off and leaves a tiny cursor on 4K.
+# Run from i3 with exec_always, so it reruns after every res-* / toggle-display restart.
+# Apps already open keep their old cursor size; new ones pick up the new size.
+dims=$(xrandr --current | sed -n 's/.*current \([0-9]*\) x \([0-9]*\).*/\1 \2/p')
+set -- $dims
+[ -n "$2" ] || exit 0
+short=$1
+[ "$2" -lt "$short" ] && short=$2
+echo "Xcursor.size: $((short / 48))" | xrdb -merge
+xsetroot -cursor_name left_ptr
