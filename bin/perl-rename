@@ -2,7 +2,17 @@
 # A safe wrapper for perl-rename that blocks collisions and accidental overwrites
 
 # Capture dry-run output
-dry_output=$(/usr/bin/perl-rename "$@" -n 2>&1)
+# Arch ships /usr/bin/perl-rename, Fedora ships /usr/bin/prename
+if [ -x /usr/bin/perl-rename ]; then
+    RENAME=/usr/bin/perl-rename
+elif [ -x /usr/bin/prename ]; then
+    RENAME=/usr/bin/prename
+else
+    echo "Error: neither /usr/bin/perl-rename nor /usr/bin/prename found" >&2
+    exit 1
+fi
+
+dry_output=$("$RENAME" "$@" -n 2>&1)
 if [ $? -ne 0 ]; then
     echo "$dry_output" >&2
     exit 1
@@ -48,4 +58,4 @@ if [ ${#errors[@]} -gt 0 ]; then
 fi
 
 # Execute the actual rename if all checks pass
-/usr/bin/perl-rename "$@"
+"$RENAME" "$@"
