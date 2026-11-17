@@ -94,14 +94,14 @@ bindsym button2 kill
 # App launchers
 bindsym $mod+Return exec kitty
 bindsym $mod+Shift+Return exec xfce4-terminal
-bindsym $mod+z exec --no-startup-id zen-browser
+bindsym $mod+z exec firefox
 bindsym $mod+x exec thunar
 bindsym $mod+o exec --no-startup-id QT_QPA_PLATFORMTHEME=qt6ct QT_SCALE_FACTOR=1.75 dolphin
 bindsym $mod+i exec --no-startup-id dolphin
 bindsym Control+Shift+Escape exec --no-startup-id missioncenter
 bindsym $mod+c exec ~/.local/bin/prismlauncher-presentation
 bindsym $mod+n exec thunderbird
-bindsym $mod+m exec firefox
+bindsym $mod+m exec --no-startup-id zen-browser
 bindsym $mod+shift+c exec steam steam://rungameid/588430
 
 # kill focused window

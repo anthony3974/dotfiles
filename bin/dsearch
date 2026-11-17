@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""dsearch - interactive, case-insensitive directory name search.
+
+Type to list the sub-folders of a directory whose names start with what you
+typed. Backspace widens the list again.
+
+usage: dsearch [DIR] [-c|--contains]
+
+Keys: type/Backspace to edit, Ctrl-U clear, Up/Down/PgUp/PgDn scroll,
+      Esc or Ctrl-C quit.
+"""
+import curses
+import os
+import sys
+
+os.environ.setdefault("ESCDELAY", "25")
+
+
+def list_dirs(root):
+    with os.scandir(root) as it:
+        names = [e.name for e in it if e.is_dir() and not e.name.startswith(".")]
+    return sorted(names, key=str.casefold)
+
+
+def run(stdscr, root, names, contains):
+    curses.curs_set(1)
+    query = ""
+    top = 0
+    while True:
+        q = query.casefold()
+        if contains:
+            hits = [n for n in names if q in n.casefold()]
+        else:
+            hits = [n for n in names if n.casefold().startswith(q)]
+
+        h, w = stdscr.getmaxyx()
+        rows = max(h - 3, 1)
+        top = max(0, min(top, max(len(hits) - rows, 0)))
+
+        stdscr.erase()
+        mode = "contains" if contains else "starts with"
+        stdscr.addnstr(0, 0, f"{root}  ({mode}, case-insensitive)", w - 1, curses.A_DIM)
+        stdscr.addnstr(1, 0, f"> {query}", w - 1, curses.A_BOLD)
+        for i, name in enumerate(hits[top:top + rows]):
+            stdscr.addnstr(2 + i, 0, name, w - 1)
+        stdscr.addnstr(h - 1, 0, f"{len(hits)}/{len(names)} folders", w - 1, curses.A_DIM)
+        stdscr.move(1, min(2 + len(query), w - 1))
+        stdscr.refresh()
+
+        key = stdscr.get_wch()
+        if key in ("\x1b", "\x03", "\x04"):
+            return
+        elif key in ("\x7f", "\b", curses.KEY_BACKSPACE):
+            query = query[:-1]
+            top = 0
+        elif key == "\x15":
+            query = ""
+            top = 0
+        elif key == curses.KEY_DOWN:
+            top += 1
+        elif key == curses.KEY_UP:
+            top -= 1
+        elif key == curses.KEY_NPAGE:
+            top += rows
+        elif key == curses.KEY_PPAGE:
+            top -= rows
+        elif isinstance(key, str) and key.isprintable():
+            query += key
+            top = 0
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    contains = any(a in ("-c", "--contains") for a in sys.argv[1:])
+    root = os.path.abspath(os.path.expanduser(args[0])) if args else os.getcwd()
+    if not os.path.isdir(root):
+        sys.exit(f"dsearch: not a directory: {root}")
+    names = list_dirs(root)
+    try:
+        curses.wrapper(run, root, names, contains)
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
