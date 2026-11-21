@@ -92,7 +92,7 @@ alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias gl='git log --oneline -10'
-alias fgame='cd ~/Documents/unity/Farming-Simulator-94/'
+alias agame='cd ~/Documents/unity/Ace-Barcade/'
 alias lgame='cd ~/Documents/unity/Last-Lamp/'
 alias sgame='cd ~/Documents/unity/Scoop-and-Sausage/'
 

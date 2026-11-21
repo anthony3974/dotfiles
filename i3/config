@@ -45,7 +45,7 @@ exec --no-startup-id xfce4-power-manager &
 exec --no-startup-id ~/.local/bin/caffeine-applet
 
 # Clipboard manager
-exec --no-startup-id copyq
+exec --no-startup-id sh -c 'sleep 3; exec copyq'
 
 # System tray system-helper
 exec --no-startup-id python3 ~/.local/bin/tray
