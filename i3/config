@@ -101,7 +101,7 @@ bindsym $mod+i exec --no-startup-id dolphin
 bindsym Control+Shift+Escape exec --no-startup-id missioncenter
 bindsym $mod+c exec ~/.local/bin/prismlauncher-presentation
 bindsym $mod+n exec thunderbird
-bindsym $mod+m exec --no-startup-id zen-browser
+bindsym $mod+m exec --no-startup-id google-chrome-stable
 bindsym $mod+shift+c exec steam steam://rungameid/588430
 
 # kill focused window
