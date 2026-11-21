@@ -95,6 +95,7 @@ alias gl='git log --oneline -10'
 alias agame='cd ~/Documents/unity/Ace-Barcade/'
 alias lgame='cd ~/Documents/unity/Last-Lamp/'
 alias sgame='cd ~/Documents/unity/Scoop-and-Sausage/'
+alias uuu='cd ~/Documents/unity/'
 
 # My functions
 md() {
