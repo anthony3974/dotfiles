@@ -68,21 +68,7 @@ mkdir -p ~/.local
 ln -sfn ~/dotfiles/bin ~/.local/bin
 ```
 
-### 4. Add workflow aliases to Bash
-
-Run once to append `dotpush` and `dotpull` to the shared Bash config
-(skip if `grep dotpush ~/dotfiles/bash/bashrc` already finds them):
-
-```bash
-cat << 'EOF' >> ~/dotfiles/bash/bashrc
-
-# Dotfiles synchronization aliases
-alias dotpush='cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push && cd -'
-alias dotpull='cd ~/dotfiles && git pull && i3-msg restart && cd -'
-EOF
-```
-
-### 5. Configure i3
+### 4. Configure i3
 
 ```bash
 # Prepare directories & backup
@@ -101,7 +87,7 @@ ln -sf ~/dotfiles/i3/hosts/desktop.conf ~/.config/i3/local.conf
 # ln -sf ~/dotfiles/i3/hosts/laptop.conf ~/.config/i3/local.conf
 ```
 
-### 6. Configure i3blocks
+### 5. Configure i3blocks
 
 ```bash
 # Back up existing i3blocks directory
@@ -111,7 +97,7 @@ mv ~/.config/i3blocks ~/.config/i3blocks.bak 2>/dev/null || true
 ln -sfn ~/dotfiles/i3blocks ~/.config/i3blocks
 ```
 
-### 7. Configure Rofi
+### 6. Configure Rofi
 
 ```bash
 # Back up existing Rofi config, if any
@@ -126,7 +112,7 @@ This file lives in `~/.config/rofi`, not in the i3 config. It limits drun matchi
 app names and turns on sorting. Test with `rofi -show drun`, typing `steam` and
 `mission center`.
 
-### 8. Apply Changes
+### 7. Apply Changes
 
 ```bash
 i3-msg restart
@@ -140,9 +126,7 @@ source ~/.bashrc
 ### Push changes (from the active machine)
 
 ```bash
-dotpush
-# Or manually:
-# cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push
+cd ~/dotfiles && git add -u && git commit -m "Update dotfiles" && git push
 ```
 
 `git add -u` only stages files git already tracks. For a **new** script or config,
@@ -151,7 +135,5 @@ dotpush
 ### Pull changes (on the other machine)
 
 ```bash
-dotpull
-# Or manually:
-# cd ~/dotfiles && git pull && i3-msg restart
+cd ~/dotfiles && git pull && i3-msg restart
 ```

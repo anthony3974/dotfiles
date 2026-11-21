@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
+"""Caffeine tray applet.
+
+Caffeine is ON when either:
+  - you turned it on (left click, or a 1/2/3h timer), or
+  - an app wrapper (kodi-presentation, prismlauncher-presentation) holds it.
+
+Wrappers hold it by writing their app name to $XDG_RUNTIME_DIR/caffeine/<pid>
+and deleting the file on exit. Holds whose process is gone are dropped, and the
+runtime dir is wiped on reboot, so a crash or shutdown can't leave it stuck on.
+The applet is the only thing that writes xfce4-power-manager's presentation-mode;
+every change is logged: journalctl -t caffeine
+"""
+import os
 import subprocess
-import warnings
-import sys
+import syslog
 import time
+import warnings
+
 import gi
 
 # Suppress GTK deprecation warnings
@@ -10,25 +24,29 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import Gtk, GLib, Gio, GdkPixbuf
+from gi.repository import Gtk, GLib, GdkPixbuf
 
-# Vector SVGs (Coffee Cup Active vs Inactive)
-SVG_ACTIVE = """
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38d430" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+CUP = """
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
   <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
-  <line x1="6" y1="1" x2="6" y2="4"/>
+  {steam}
+</svg>
+"""
+STEAM = """<line x1="6" y1="1" x2="6" y2="4"/>
   <line x1="10" y1="1" x2="10" y2="4"/>
-  <line x1="14" y1="1" x2="14" y2="4"/>
-</svg>
-"""
+  <line x1="14" y1="1" x2="14" y2="4"/>"""
 
-SVG_INACTIVE = """
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
-  <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
-</svg>
-"""
+SVG_MANUAL = CUP.format(color="#38d430", steam=STEAM)   # green: you turned it on
+SVG_HELD = CUP.format(color="#e0a030", steam=STEAM)     # amber: only an app holds it
+SVG_OFF = CUP.format(color="#888888", steam="")
+
+HOLD_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}",
+                        "caffeine")
+
+XFCONF = ["xfconf-query", "-c", "xfce4-power-manager",
+          "-p", "/xfce4-power-manager/presentation-mode"]
+
 
 def load_pixbuf_from_svg(svg_data):
     loader = GdkPixbuf.PixbufLoader.new_with_type('svg')
@@ -36,111 +54,190 @@ def load_pixbuf_from_svg(svg_data):
     loader.close()
     return loader.get_pixbuf()
 
+
+def log(msg):
+    syslog.syslog(syslog.LOG_INFO, msg)
+
+
+def onoff(b):
+    return "ON" if b else "OFF"
+
+
+def read_presentation():
+    """True/False, or None if xfconf can't be read right now"""
+    try:
+        r = subprocess.run(XFCONF, capture_output=True, text=True, timeout=3)
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip() == "true"
+
+
+def write_presentation(enable):
+    try:
+        subprocess.run(XFCONF + ["-n", "-t", "bool", "-s", "true" if enable else "false"],
+                       check=False, timeout=3)
+    except Exception:
+        pass
+
+
+def live_holds():
+    """Names of apps currently holding caffeine on; stale hold files are removed"""
+    try:
+        entries = os.listdir(HOLD_DIR)
+    except OSError:
+        return []
+    names = []
+    for pid in entries:
+        path = os.path.join(HOLD_DIR, pid)
+        try:
+            with open(path) as f:
+                name = f.read().strip()
+        except OSError:
+            continue
+        if not name:
+            continue  # wrapper is mid-write; look again next poll
+        alive = False
+        if pid.isdigit():
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as f:
+                    alive = name.encode() in f.read()
+            except OSError:
+                pass
+        if alive:
+            names.append(name)
+        else:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            log(f"dropped stale hold: {name} (pid {pid} is gone)")
+    return sorted(set(names))
+
+
 class CaffeineApplet:
     def __init__(self):
-        self.is_active = False
+        self.manual = False        # always start OFF; nothing carries over a reboot
+        self.holds = []
         self.timer_id = None
         self.expire_time = None
-        self.tooltip_timer_id = None
-        self.inhibit_cookie = None
+        self.last_written = None
+        self.shown_pixbuf = None
 
-        # Setup DBus connection for xfce4-power-manager / freedesktop
-        try:
-            self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        except Exception:
-            self.bus = None
+        self.pixbuf_manual = load_pixbuf_from_svg(SVG_MANUAL)
+        self.pixbuf_held = load_pixbuf_from_svg(SVG_HELD)
+        self.pixbuf_off = load_pixbuf_from_svg(SVG_OFF)
 
-        # Pre-render pixbufs from SVG strings
-        self.pixbuf_active = load_pixbuf_from_svg(SVG_ACTIVE)
-        self.pixbuf_inactive = load_pixbuf_from_svg(SVG_INACTIVE)
-
-        # Initialize StatusIcon
         self.status_icon = Gtk.StatusIcon()
         self.status_icon.connect('activate', self.on_left_click)
         self.status_icon.connect('popup-menu', self.on_right_click)
 
-        self.is_active = self.read_inhibit()
-        self.refresh_icon()
+        start = read_presentation()
+        self.is_active = bool(start)
+        log(f"applet started; presentation-mode was {onoff(start) if start is not None else 'unreadable'}")
+
+        self.poll_state()
         GLib.timeout_add_seconds(1, self.poll_state)
 
-    XFCONF = ["xfconf-query", "-c", "xfce4-power-manager",
-              "-p", "/xfce4-power-manager/presentation-mode"]
-
-    def read_inhibit(self):
-        """xfconf presentation-mode is the source of truth (launchers also set it)"""
-        try:
-            out = subprocess.run(self.XFCONF, capture_output=True, text=True, timeout=3).stdout
-            return out.strip() == "true"
-        except Exception:
-            return self.is_active
-
-    def set_inhibit(self, enable: bool):
-        self.is_active = enable
-        subprocess.run(self.XFCONF + ["-s", "true" if enable else "false"], check=False)
-
     def poll_state(self):
-        """Pick up changes made outside the applet (prismlauncher/kodi wrappers, xfce tray)"""
-        actual = self.read_inhibit()
-        if actual != self.is_active:
-            self.is_active = actual
+        actual = read_presentation()
+
+        # Someone else changed it (xfce4-power-manager tray, xfconf-query by hand):
+        # treat that as your manual choice
+        if actual is not None and self.last_written is not None and actual != self.last_written:
+            log(f"changed outside the applet to {onoff(actual)}; using that as the manual setting")
+            self.manual = actual
             if not actual:
                 self.cancel_timer()
-            self.refresh_icon()
+
+        holds = live_holds()
+        for name in set(holds) - set(self.holds):
+            log(f"hold taken: {name}")
+        for name in set(self.holds) - set(holds):
+            log(f"hold released: {name}")
+        self.holds = holds
+
+        effective = self.manual or bool(self.holds)
+        if effective != actual:
+            write_presentation(effective)
+        self.last_written = effective
+
+        if effective != self.is_active:
+            log(f"{onoff(self.is_active)} -> {onoff(effective)} ({self.reason()})")
+            self.is_active = effective
+
+        self.refresh_icon()
         return True
+
+    def reason(self):
+        parts = []
+        if self.manual:
+            parts.append("timer" if self.expire_time else "manual")
+        if self.holds:
+            parts.append("held by " + ", ".join(self.holds))
+        return " + ".join(parts) or "nothing holding it"
 
     def refresh_icon(self):
-        self.status_icon.set_from_pixbuf(self.pixbuf_active if self.is_active else self.pixbuf_inactive)
-        self.update_tooltip()
+        if self.manual:
+            pixbuf = self.pixbuf_manual
+        elif self.holds:
+            pixbuf = self.pixbuf_held
+        else:
+            pixbuf = self.pixbuf_off
+        if pixbuf is not self.shown_pixbuf:
+            self.status_icon.set_from_pixbuf(pixbuf)
+            self.shown_pixbuf = pixbuf
 
-    def update_tooltip(self):
-        """Dynamically calculates remaining time and updates the tooltip"""
-        if self.is_active:
+        if not self.is_active:
+            self.status_icon.set_tooltip_text("Caffeine: OFF (power management active)")
+            return
+        parts = []
+        if self.manual:
             if self.expire_time:
-                rem = int(self.expire_time - time.time())
-                if rem > 0:
-                    h, rem_sec = divmod(rem, 3600)
-                    m, s = divmod(rem_sec, 60)
-                    tooltip = f"Caffeine: ACTIVE (Time left: {h:02d}:{m:02d}:{s:02d})"
-                else:
-                    tooltip = "Caffeine: ACTIVE (Timer expiring...)"
+                rem = max(0, int(self.expire_time - time.time()))
+                h, rem = divmod(rem, 3600)
+                m, s = divmod(rem, 60)
+                parts.append(f"timer {h:02d}:{m:02d}:{s:02d} left")
             else:
-                tooltip = "Caffeine: ACTIVE (Power management inhibited)"
-        else:
-            tooltip = "Caffeine: INACTIVE (Power management active)"
+                parts.append("manual")
+        if self.holds:
+            parts.append("held by " + ", ".join(self.holds))
+        self.status_icon.set_tooltip_text("Caffeine: ON (" + ", ".join(parts) + ")")
 
-        self.status_icon.set_tooltip_text(tooltip)
-        return True
+    def notify(self, msg):
+        # Popen, not run: if the notification daemon hangs, don't freeze the GTK loop
+        try:
+            subprocess.Popen(["notify-send", "Caffeine", msg],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        except OSError:
+            pass
 
-    def update_state(self, active: bool, msg: str = None):
-        self.set_inhibit(active)
+    def still_held_note(self):
+        return f" Still on while {', '.join(self.holds)} runs." if self.holds else ""
 
-        if self.is_active:
-            self.status_icon.set_from_pixbuf(self.pixbuf_active)
-        else:
-            self.status_icon.set_from_pixbuf(self.pixbuf_inactive)
-
-        self.update_tooltip()
-
-        if msg:
-            # Popen, not run: if the notification daemon hangs, don't freeze the GTK loop
-            try:
-                subprocess.Popen(["notify-send", "Caffeine", msg],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                 start_new_session=True)
-            except OSError:
-                pass
+    def set_manual(self, enable, msg):
+        self.manual = enable
+        log(msg)
+        self.poll_state()
+        self.notify(msg + ("" if enable else self.still_held_note()))
 
     def on_left_click(self, icon):
-        """Left click toggles infinite lock suppression"""
+        """Left click toggles your manual setting (app holds still apply)"""
         self.cancel_timer()
-        self.update_state(not self.is_active, "Toggled " + ("ON" if not self.is_active else "OFF"))
+        self.set_manual(not self.manual, "Manual " + onoff(not self.manual) + ".")
 
     def on_right_click(self, icon, button, time_val):
-        """Right click menu: Activate/Deactivate, 1h, 2h, 3h timers, Exit"""
         menu = Gtk.Menu()
 
-        toggle_label = "Deactivate" if self.is_active else "Activate"
-        item_toggle = Gtk.MenuItem(label=toggle_label)
+        if self.holds:
+            item_held = Gtk.MenuItem(label="Held on by: " + ", ".join(self.holds))
+            item_held.set_sensitive(False)
+            menu.append(item_held)
+            menu.append(Gtk.SeparatorMenuItem())
+
+        item_toggle = Gtk.MenuItem(label="Deactivate" if self.manual else "Activate")
         item_toggle.connect('activate', lambda _: self.on_left_click(icon))
         menu.append(item_toggle)
 
@@ -163,39 +260,35 @@ class CaffeineApplet:
     def start_timer(self, hours):
         self.cancel_timer()
         seconds = hours * 3600
-        
         self.expire_time = time.time() + seconds
         self.timer_id = GLib.timeout_add_seconds(seconds, self.on_timer_expire)
-        self.tooltip_timer_id = GLib.timeout_add_seconds(1, self.update_tooltip)
-        
-        self.update_state(True, f"Activated for {hours} hour(s)")
+        self.set_manual(True, f"Activated for {hours} hour(s)")
 
     def cancel_timer(self):
         self.expire_time = None
-        
         if self.timer_id:
             GLib.source_remove(self.timer_id)
             self.timer_id = None
-            
-        if self.tooltip_timer_id:
-            GLib.source_remove(self.tooltip_timer_id)
-            self.tooltip_timer_id = None
-            
-        self.update_tooltip()
 
     def on_timer_expire(self):
         self.timer_id = None
         self.cancel_timer()
-        self.update_state(False, "Timer expired. Screen lock re-enabled.")
+        self.set_manual(False, "Timer expired." + ("" if self.holds else " Screen lock re-enabled."))
         return False
 
+    def shutdown(self):
+        log("applet exiting; turning presentation-mode OFF")
+        write_presentation(False)
+
     def on_exit(self, _):
-        self.set_inhibit(False)
+        self.shutdown()
         Gtk.main_quit()
 
+
 if __name__ == '__main__':
+    syslog.openlog("caffeine", 0, syslog.LOG_USER)
     app = CaffeineApplet()
     try:
         Gtk.main()
     except KeyboardInterrupt:
-        app.set_inhibit(False)
+        app.shutdown()

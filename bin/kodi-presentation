@@ -1,7 +1,10 @@
 #!/bin/sh
-# Keep screen awake while kodi runs; restore the previous state on exit
-P=/xfce4-power-manager/presentation-mode
-prev=$(xfconf-query -c xfce4-power-manager -p $P)
-xfconf-query -c xfce4-power-manager -p $P -s true
-trap 'xfconf-query -c xfce4-power-manager -p $P -s "${prev:-false}"' EXIT
+# Keep the screen awake while kodi runs, by holding caffeine on (see caffeine-applet).
+# The applet drops the hold once this process is gone, so a crash, a hung kodi or a
+# shutdown can't leave caffeine stuck on.
+hold="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/caffeine/$$"
+mkdir -p "${hold%/*}"
+echo kodi > "$hold"
+trap 'rm -f "$hold"' EXIT
+trap 'exit 1' INT TERM HUP
 kodi "$@"
